@@ -121,6 +121,8 @@ const settingUpdaters: {
     commands.changeSmartFormatEnabledSetting(value as boolean),
   spoken_commands_enabled: (value) =>
     commands.changeSpokenCommandsEnabledSetting(value as boolean),
+  cloud_transcription_enabled: (value) =>
+    commands.changeCloudTranscriptionEnabledSetting(value as boolean),
   overlay_position: (value) =>
     commands.changeOverlayPositionSetting(value as string),
   debug_mode: (value) => commands.changeDebugModeSetting(value as boolean),

@@ -407,7 +407,10 @@ pub(crate) async fn process_transcription_output(
         final_text = converted_text;
     }
 
-    if post_process {
+    // Wispr-style behavior: once the post-processing toggle is on, LLM
+    // cleanup applies to every dictation — the dedicated post-process
+    // binding additionally forces it regardless of the toggle.
+    if post_process || settings.post_process_enabled {
         if let Some(processed_text) = post_process_transcription(&settings, &final_text).await {
             post_processed_text = Some(processed_text.clone());
             final_text = processed_text;
@@ -671,7 +674,38 @@ impl ShortcutAction for TranscribeAction {
                         // surfaced instead — the worker may still hold the engine,
                         // so a batch fallback would contend with it.
                         Ok(Some(text)) if !text.trim().is_empty() => Ok(text),
-                        Ok(_) => tm.transcribe(samples),
+                        Ok(_) => {
+                            // Optional cloud path (Groq): highest quality, but
+                            // any failure falls back to the local model so
+                            // dictation keeps working offline.
+                            let settings = get_settings(&ah);
+                            let cloud_key = settings
+                                .post_process_api_keys
+                                .get("groq")
+                                .cloned()
+                                .unwrap_or_default();
+                            if settings.cloud_transcription_enabled && !cloud_key.trim().is_empty()
+                            {
+                                match crate::managers::cloud_transcription::transcribe_groq(
+                                    &samples,
+                                    &settings.selected_language,
+                                    &cloud_key,
+                                )
+                                .await
+                                {
+                                    Ok(text) => Ok(text),
+                                    Err(err) => {
+                                        warn!(
+                                            "Cloud transcription failed ({}), falling back to local model",
+                                            err
+                                        );
+                                        tm.transcribe(samples)
+                                    }
+                                }
+                            } else {
+                                tm.transcribe(samples)
+                            }
+                        }
                         Err(err) => Err(err),
                     };
 

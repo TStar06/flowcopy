@@ -448,6 +448,11 @@ pub struct AppSettings {
     pub text_replacements: Vec<TextReplacement>,
     #[serde(default)]
     pub snippets: Vec<Snippet>,
+    /// Transcribe via Groq cloud (whisper-large-v3-turbo) instead of the
+    /// local model. Uses the Groq post-processing API key; silently falls
+    /// back to the local model on any error.
+    #[serde(default)]
+    pub cloud_transcription_enabled: bool,
     #[serde(default)]
     pub transcribe_accelerator: TranscribeAcceleratorSetting,
     #[serde(default)]
@@ -924,6 +929,7 @@ pub fn get_default_settings() -> AppSettings {
         spoken_commands_enabled: default_spoken_commands_enabled(),
         text_replacements: Vec::new(),
         snippets: Vec::new(),
+        cloud_transcription_enabled: false,
         transcribe_accelerator: TranscribeAcceleratorSetting::default(),
         ort_accelerator: OrtAcceleratorSetting::default(),
         transcribe_gpu_device: default_transcribe_gpu_device(),

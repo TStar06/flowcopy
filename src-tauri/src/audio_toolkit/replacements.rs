@@ -87,7 +87,10 @@ mod tests {
     #[test]
     fn test_case_insensitive_by_default() {
         let rules = [rule("vs code", "VS Code")];
-        assert_eq!(apply_replacement_rules("Vs Code läuft", &rules), "VS Code läuft");
+        assert_eq!(
+            apply_replacement_rules("Vs Code läuft", &rules),
+            "VS Code läuft"
+        );
     }
 
     #[test]
@@ -133,7 +136,10 @@ mod tests {
     #[test]
     fn test_dollar_in_replacement_is_literal() {
         let rules = [rule("preis", "$5")];
-        assert_eq!(apply_replacement_rules("der preis steht", &rules), "der $5 steht");
+        assert_eq!(
+            apply_replacement_rules("der preis steht", &rules),
+            "der $5 steht"
+        );
     }
 
     #[test]
@@ -148,7 +154,10 @@ mod tests {
     #[test]
     fn test_empty_pattern_ignored() {
         let rules = [rule("", "x")];
-        assert_eq!(apply_replacement_rules("nichts passiert", &rules), "nichts passiert");
+        assert_eq!(
+            apply_replacement_rules("nichts passiert", &rules),
+            "nichts passiert"
+        );
     }
 
     #[test]

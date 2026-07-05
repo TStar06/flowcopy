@@ -211,6 +211,11 @@
         "noResults": "言語が見つかりません",
         "auto": "自動"
       },
+      "cloudTranscription": {
+        "group": "Cloud transcription",
+        "label": "Transcribe via Groq Cloud",
+        "description": "Uses Groq whisper-large-v3-turbo (free API key required, same key as post-processing). Highest quality and speed; automatically falls back to the local model if offline."
+      },
       "pushToTalk": {
         "label": "プッシュツートーク",
         "description": "押し続けて録音、離して停止"

@@ -211,6 +211,11 @@
         "noResults": "Nessuna lingua trovata",
         "auto": "Auto"
       },
+      "cloudTranscription": {
+        "group": "Cloud transcription",
+        "label": "Transcribe via Groq Cloud",
+        "description": "Uses Groq whisper-large-v3-turbo (free API key required, same key as post-processing). Highest quality and speed; automatically falls back to the local model if offline."
+      },
       "pushToTalk": {
         "label": "Premi per Parlare",
         "description": "Tieni premuto per parlare, rilascia per interrompere"

@@ -544,6 +544,7 @@ pub fn run(cli_args: CliArgs) {
             shortcut::change_selected_language_setting,
             shortcut::change_smart_format_enabled_setting,
             shortcut::change_spoken_commands_enabled_setting,
+            shortcut::change_cloud_transcription_enabled_setting,
             shortcut::change_overlay_position_setting,
             shortcut::change_overlay_style_setting,
             shortcut::change_debug_mode_setting,

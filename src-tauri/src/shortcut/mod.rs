@@ -534,6 +534,18 @@ pub fn change_selected_language_setting(app: AppHandle, language: String) -> Res
 
 #[tauri::command]
 #[specta::specta]
+pub fn change_cloud_transcription_enabled_setting(
+    app: AppHandle,
+    enabled: bool,
+) -> Result<(), String> {
+    let mut settings = settings::get_settings(&app);
+    settings.cloud_transcription_enabled = enabled;
+    settings::write_settings(&app, settings);
+    Ok(())
+}
+
+#[tauri::command]
+#[specta::specta]
 pub fn change_smart_format_enabled_setting(app: AppHandle, enabled: bool) -> Result<(), String> {
     let mut settings = settings::get_settings(&app);
     settings.smart_format_enabled = enabled;

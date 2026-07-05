@@ -211,6 +211,11 @@
         "noResults": "Keine Sprachen gefunden",
         "auto": "Auto"
       },
+      "cloudTranscription": {
+        "group": "Cloud-Transkription",
+        "label": "?ber Groq-Cloud transkribieren",
+        "description": "Nutzt Groq whisper-large-v3-turbo (kostenloser API-Key n?tig, gleicher Key wie Nachbearbeitung). H?chste Qualit?t und Geschwindigkeit; f?llt offline automatisch auf das lokale Modell zur?ck."
+      },
       "pushToTalk": {
         "label": "Push-to-Talk",
         "description": "Gedrückt halten zum Aufnehmen, loslassen zum Stoppen"
