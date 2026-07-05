@@ -244,6 +244,7 @@
         "app": "App",
         "output": "Output",
         "transcription": "Transcription",
+        "dictionary": "Dictionary",
         "history": "History",
         "experimental": "Experimental"
       },
@@ -341,6 +342,30 @@
       "translateToEnglish": {
         "label": "Translate to English",
         "description": "Automatically translate speech from other languages to English during transcription."
+      },
+      "smartFormat": {
+        "label": "Smart formatting",
+        "description": "Normalizes punctuation, spacing and sentence capitalization of transcripts."
+      },
+      "spokenCommands": {
+        "label": "Spoken commands",
+        "description": "Converts spoken commands like “new line” or “period” into formatting."
+      },
+      "textReplacements": {
+        "title": "Text replacements",
+        "description": "Automatically replace a dictated word or phrase with another text (e.g. \"vs code\" \u2192 \"VS Code\").",
+        "patternPlaceholder": "Spoken text",
+        "replacementPlaceholder": "Replace with",
+        "add": "Add",
+        "remove": "Remove replacement {{pattern}}"
+      },
+      "snippets": {
+        "title": "Snippets",
+        "description": "Insert a saved text block by saying its trigger phrase while dictating.",
+        "triggerPlaceholder": "Trigger phrase (e.g. \"my signature\")",
+        "bodyPlaceholder": "Text to insert",
+        "add": "Add",
+        "remove": "Remove snippet {{trigger}}"
       },
       "modelUnload": {
         "title": "Unload Model",

@@ -1218,15 +1218,14 @@ impl TranscriptionManager {
                         // whisper run extension to a non-whisper arch is rejected
                         // with INVALID_ARG, so skip it there and let the fuzzy
                         // post-correction handle custom words instead.
-                        let family =
-                            if settings.custom_words.is_empty() || !model_is_whisper {
-                                None
-                            } else {
-                                Some(RunExtension::Whisper(WhisperRunOptions {
-                                    initial_prompt: Some(settings.custom_words.join(", ")),
-                                    ..Default::default()
-                                }))
-                            };
+                        let family = if settings.custom_words.is_empty() || !model_is_whisper {
+                            None
+                        } else {
+                            Some(RunExtension::Whisper(WhisperRunOptions {
+                                initial_prompt: Some(settings.custom_words.join(", ")),
+                                ..Default::default()
+                            }))
+                        };
 
                         let run_plan = transcribe_cpp_run_plan(
                             settings.translate_to_english,
@@ -1387,8 +1386,7 @@ impl TranscriptionManager {
         // family). We don't pass a prompt to non-whisper models (it requires the
         // whisper-kind run extension), so they still get fuzzy correction here,
         // same as the ONNX engines.
-        let filtered_result =
-            post_process_transcription_text(result, &settings, model_is_whisper);
+        let filtered_result = post_process_transcription_text(result, &settings, model_is_whisper);
 
         let et = std::time::Instant::now();
         let translation_note = if settings.translate_to_english {
@@ -1610,11 +1608,57 @@ fn post_process_transcription_text(
         raw
     };
 
-    filter_transcription_output(
+    let filtered = filter_transcription_output(
         &corrected,
         &settings.app_language,
         &settings.custom_filler_words,
-    )
+    );
+
+    // Dictionary replacements fix recurring ASR errors, so they run before
+    // formatting (capitalization then applies to the corrected words).
+    let replaced = if settings.text_replacements.is_empty() {
+        filtered
+    } else {
+        let rules: Vec<crate::audio_toolkit::ReplacementRule> = settings
+            .text_replacements
+            .iter()
+            .map(|r| crate::audio_toolkit::ReplacementRule {
+                pattern: &r.pattern,
+                replacement: &r.replacement,
+                case_sensitive: r.case_sensitive,
+            })
+            .collect();
+        crate::audio_toolkit::apply_replacement_rules(&filtered, &rules)
+    };
+
+    let formatted = if settings.smart_format_enabled {
+        // Smart formatting keys off the *transcription* language, not the UI
+        // language: spoken commands must match what the user dictates.
+        crate::audio_toolkit::apply_smart_formatting(
+            &replaced,
+            &settings.selected_language,
+            settings.spoken_commands_enabled,
+        )
+    } else {
+        replaced
+    };
+
+    // Snippets expand last so their bodies (multi-line blocks, signatures)
+    // are inserted verbatim and never re-formatted.
+    if settings.snippets.is_empty() {
+        formatted
+    } else {
+        let rules: Vec<crate::audio_toolkit::ReplacementRule> = settings
+            .snippets
+            .iter()
+            .map(|s| crate::audio_toolkit::ReplacementRule {
+                pattern: &s.trigger,
+                replacement: &s.body,
+                case_sensitive: false,
+            })
+            .collect();
+        crate::audio_toolkit::apply_replacement_rules(&formatted, &rules)
+    }
 }
 
 /// Decide a transcribe-cpp run's task + translation target from settings.

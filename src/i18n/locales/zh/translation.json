@@ -244,6 +244,7 @@
         "app": "应用",
         "output": "输出",
         "transcription": "转录",
+        "dictionary": "Dictionary",
         "history": "历史",
         "experimental": "实验性"
       },
@@ -341,6 +342,30 @@
       "translateToEnglish": {
         "label": "翻译为英语",
         "description": "在转录过程中自动将其他语言的语音翻译为英语。"
+      },
+      "smartFormat": {
+        "label": "Smart formatting",
+        "description": "Normalizes punctuation, spacing and sentence capitalization of transcripts."
+      },
+      "spokenCommands": {
+        "label": "Spoken commands",
+        "description": "Converts spoken commands like \u201cnew line\u201d or \u201cperiod\u201d into formatting."
+      },
+      "textReplacements": {
+        "title": "Text replacements",
+        "description": "Automatically replace a dictated word or phrase with another text (e.g. \"vs code\" \u2192 \"VS Code\").",
+        "patternPlaceholder": "Spoken text",
+        "replacementPlaceholder": "Replace with",
+        "add": "Add",
+        "remove": "Remove replacement {{pattern}}"
+      },
+      "snippets": {
+        "title": "Snippets",
+        "description": "Insert a saved text block by saying its trigger phrase while dictating.",
+        "triggerPlaceholder": "Trigger phrase (e.g. \"my signature\")",
+        "bodyPlaceholder": "Text to insert",
+        "add": "Add",
+        "remove": "Remove snippet {{trigger}}"
       },
       "modelUnload": {
         "title": "卸载模型",

@@ -244,6 +244,7 @@
         "app": "Приложение",
         "output": "Изход",
         "transcription": "Транскрипция",
+        "dictionary": "Dictionary",
         "history": "История",
         "experimental": "Експериментални"
       },
@@ -341,6 +342,30 @@
       "translateToEnglish": {
         "label": "Превод на английски",
         "description": "Автоматичен превод на реч от други езици на английски по време на транскрипция."
+      },
+      "smartFormat": {
+        "label": "Smart formatting",
+        "description": "Normalizes punctuation, spacing and sentence capitalization of transcripts."
+      },
+      "spokenCommands": {
+        "label": "Spoken commands",
+        "description": "Converts spoken commands like \u201cnew line\u201d or \u201cperiod\u201d into formatting."
+      },
+      "textReplacements": {
+        "title": "Text replacements",
+        "description": "Automatically replace a dictated word or phrase with another text (e.g. \"vs code\" \u2192 \"VS Code\").",
+        "patternPlaceholder": "Spoken text",
+        "replacementPlaceholder": "Replace with",
+        "add": "Add",
+        "remove": "Remove replacement {{pattern}}"
+      },
+      "snippets": {
+        "title": "Snippets",
+        "description": "Insert a saved text block by saying its trigger phrase while dictating.",
+        "triggerPlaceholder": "Trigger phrase (e.g. \"my signature\")",
+        "bodyPlaceholder": "Text to insert",
+        "add": "Add",
+        "remove": "Remove snippet {{trigger}}"
       },
       "modelUnload": {
         "title": "Разтоварване на модела",

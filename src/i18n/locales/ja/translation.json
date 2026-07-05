@@ -244,6 +244,7 @@
         "app": "アプリ",
         "output": "出力",
         "transcription": "文字起こし",
+        "dictionary": "Dictionary",
         "history": "履歴",
         "experimental": "実験的"
       },
@@ -341,6 +342,30 @@
       "translateToEnglish": {
         "label": "英語に翻訳",
         "description": "文字起こし中に他の言語から英語に自動的に翻訳。"
+      },
+      "smartFormat": {
+        "label": "Smart formatting",
+        "description": "Normalizes punctuation, spacing and sentence capitalization of transcripts."
+      },
+      "spokenCommands": {
+        "label": "Spoken commands",
+        "description": "Converts spoken commands like \u201cnew line\u201d or \u201cperiod\u201d into formatting."
+      },
+      "textReplacements": {
+        "title": "Text replacements",
+        "description": "Automatically replace a dictated word or phrase with another text (e.g. \"vs code\" \u2192 \"VS Code\").",
+        "patternPlaceholder": "Spoken text",
+        "replacementPlaceholder": "Replace with",
+        "add": "Add",
+        "remove": "Remove replacement {{pattern}}"
+      },
+      "snippets": {
+        "title": "Snippets",
+        "description": "Insert a saved text block by saying its trigger phrase while dictating.",
+        "triggerPlaceholder": "Trigger phrase (e.g. \"my signature\")",
+        "bodyPlaceholder": "Text to insert",
+        "add": "Add",
+        "remove": "Remove snippet {{trigger}}"
       },
       "modelUnload": {
         "title": "モデルのアンロード",

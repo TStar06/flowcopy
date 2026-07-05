@@ -96,11 +96,22 @@ fn build_headers(provider: &PostProcessProvider, api_key: &str) -> Result<Header
     Ok(headers)
 }
 
-/// Create an HTTP client with provider-specific headers
+/// Create an HTTP client with provider-specific headers.
+///
+/// A hard request timeout keeps dictation responsive: if the LLM does not
+/// answer in time, the caller falls back to the rule-based (Tier 0) text.
+/// Local OpenAI-compatible servers ("custom", e.g. Ollama on CPU) get a much
+/// longer budget since slow responses are expected there.
 fn create_client(provider: &PostProcessProvider, api_key: &str) -> Result<reqwest::Client, String> {
     let headers = build_headers(provider, api_key)?;
+    let timeout = if provider.id == "custom" {
+        std::time::Duration::from_secs(30)
+    } else {
+        std::time::Duration::from_secs(8)
+    };
     reqwest::Client::builder()
         .default_headers(headers)
+        .timeout(timeout)
         .build()
         .map_err(|e| format!("Failed to build HTTP client: {}", e))
 }

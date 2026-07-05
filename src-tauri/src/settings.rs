@@ -93,6 +93,23 @@ pub struct LLMPrompt {
     pub prompt: String,
 }
 
+/// User-defined dictionary replacement: whole-word `pattern` in a transcript
+/// is replaced by `replacement` (e.g. "vs code" -> "VS Code").
+#[derive(Serialize, Deserialize, Debug, Clone, Type)]
+pub struct TextReplacement {
+    pub pattern: String,
+    pub replacement: String,
+    #[serde(default)]
+    pub case_sensitive: bool,
+}
+
+/// Voice-triggered snippet: dictating the `trigger` phrase inserts `body`.
+#[derive(Serialize, Deserialize, Debug, Clone, Type)]
+pub struct Snippet {
+    pub trigger: String,
+    pub body: String,
+}
+
 #[derive(Serialize, Deserialize, Debug, Clone, Type)]
 pub struct PostProcessProvider {
     pub id: String,
@@ -423,6 +440,14 @@ pub struct AppSettings {
     pub external_script_path: Option<String>,
     #[serde(default)]
     pub custom_filler_words: Option<Vec<String>>,
+    #[serde(default = "default_smart_format_enabled")]
+    pub smart_format_enabled: bool,
+    #[serde(default = "default_spoken_commands_enabled")]
+    pub spoken_commands_enabled: bool,
+    #[serde(default)]
+    pub text_replacements: Vec<TextReplacement>,
+    #[serde(default)]
+    pub snippets: Vec<Snippet>,
     #[serde(default)]
     pub transcribe_accelerator: TranscribeAcceleratorSetting,
     #[serde(default)]
@@ -537,6 +562,14 @@ fn default_sound_theme() -> SoundTheme {
     SoundTheme::Marimba
 }
 
+fn default_smart_format_enabled() -> bool {
+    true
+}
+
+fn default_spoken_commands_enabled() -> bool {
+    true
+}
+
 fn default_post_process_enabled() -> bool {
     false
 }
@@ -552,7 +585,9 @@ fn default_show_tray_icon() -> bool {
 }
 
 fn default_post_process_provider_id() -> String {
-    "openai".to_string()
+    // Groq: kostenloser Free-Tier (nur E-Mail-Anmeldung), sehr niedrige
+    // Latenz - der empfohlene Cleanup-Provider fuer FlowCopy.
+    "groq".to_string()
 }
 
 fn default_post_process_providers() -> Vec<PostProcessProvider> {
@@ -658,6 +693,9 @@ fn default_model_for_provider(provider_id: &str) -> String {
     if provider_id == APPLE_INTELLIGENCE_PROVIDER_ID {
         return APPLE_INTELLIGENCE_DEFAULT_MODEL_ID.to_string();
     }
+    if provider_id == "groq" {
+        return "llama-3.3-70b-versatile".to_string();
+    }
     String::new()
 }
 
@@ -673,10 +711,26 @@ fn default_post_process_models() -> HashMap<String, String> {
 }
 
 fn default_post_process_prompts() -> Vec<LLMPrompt> {
-    vec![LLMPrompt {
-        id: "default_improve_transcriptions".to_string(),
-        name: "Improve Transcriptions".to_string(),
-        prompt: "Clean this transcript:\n1. Fix spelling, capitalization, and punctuation errors\n2. Convert number words to digits (twenty-five → 25, ten percent → 10%, five dollars → $5)\n3. Replace spoken punctuation with symbols (period → ., comma → ,, question mark → ?)\n4. Remove filler words (um, uh, like as filler)\n5. Keep the language in the original version (if it was french, keep it in french for example)\n\nPreserve exact meaning and word order. Do not paraphrase or reorder content.\n\nReturn only the cleaned transcript.\n\nTranscript:\n${output}".to_string(),
+    vec![
+        LLMPrompt {
+            id: "default_dictation_cleanup".to_string(),
+            name: "Diktat-Cleanup (DE/EN)".to_string(),
+            prompt: "Clean this dictated transcript (German or English):\n1. Apply self-corrections: when the speaker corrects themselves (\"nein warte\", \"ich meine\", \"ähm also eigentlich\", \"no wait\", \"I mean\", \"scratch that\", or simply restating), keep ONLY the corrected version\n2. Remove filler words (ähm, äh, halt/quasi/sozusagen when used as filler; um, uh, like as filler)\n3. Fix spelling, capitalization and punctuation\n4. Convert number words to digits (fünfundzwanzig → 25, ten percent → 10%)\n5. Format enumerations the speaker dictates (\"erstens ... zweitens ...\", \"first ... second ...\") as numbered lists\n6. Keep the original language — never translate\n\nPreserve the meaning and the speaker's wording. Do not paraphrase, do not add content, do not answer questions in the text.\n\nReturn only the cleaned transcript.\n\nTranscript:\n${output}".to_string(),
+        },
+        LLMPrompt {
+            id: "default_tone_formal".to_string(),
+            name: "Ton: Formell".to_string(),
+            prompt: "Clean this dictated transcript (German or English): apply self-corrections, remove filler words, fix punctuation. Then adjust the wording to a polite, professional tone suitable for business e-mail — complete sentences, no slang, proper salutations if dictated. Keep the original language, meaning and structure. Do not add content.\n\nReturn only the text.\n\nTranscript:\n${output}".to_string(),
+        },
+        LLMPrompt {
+            id: "default_tone_casual".to_string(),
+            name: "Ton: Locker".to_string(),
+            prompt: "Clean this dictated transcript (German or English): apply self-corrections, remove filler words, fix obvious errors. Keep the tone relaxed and conversational like a chat message — short sentences are fine, drop trailing periods on short messages. Keep the original language and meaning. Do not add content.\n\nReturn only the text.\n\nTranscript:\n${output}".to_string(),
+        },
+        LLMPrompt {
+            id: "default_improve_transcriptions".to_string(),
+            name: "Improve Transcriptions".to_string(),
+            prompt: "Clean this transcript:\n1. Fix spelling, capitalization, and punctuation errors\n2. Convert number words to digits (twenty-five → 25, ten percent → 10%, five dollars → $5)\n3. Replace spoken punctuation with symbols (period → ., comma → ,, question mark → ?)\n4. Remove filler words (um, uh, like as filler)\n5. Keep the language in the original version (if it was french, keep it in french for example)\n\nPreserve exact meaning and word order. Do not paraphrase or reorder content.\n\nReturn only the cleaned transcript.\n\nTranscript:\n${output}".to_string(),
     }]
 }
 
@@ -836,7 +890,7 @@ pub fn get_default_settings() -> AppSettings {
         post_process_api_keys: default_post_process_api_keys(),
         post_process_models: default_post_process_models(),
         post_process_prompts: default_post_process_prompts(),
-        post_process_selected_prompt_id: None,
+        post_process_selected_prompt_id: Some("default_dictation_cleanup".to_string()),
         mute_while_recording: false,
         append_trailing_space: false,
         app_language: default_app_language(),
@@ -848,6 +902,10 @@ pub fn get_default_settings() -> AppSettings {
         typing_tool: default_typing_tool(),
         external_script_path: None,
         custom_filler_words: None,
+        smart_format_enabled: default_smart_format_enabled(),
+        spoken_commands_enabled: default_spoken_commands_enabled(),
+        text_replacements: Vec::new(),
+        snippets: Vec::new(),
         transcribe_accelerator: TranscribeAcceleratorSetting::default(),
         ort_accelerator: OrtAcceleratorSetting::default(),
         transcribe_gpu_device: default_transcribe_gpu_device(),

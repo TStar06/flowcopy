@@ -1,1 +1,4 @@
 [build]
+# Kurzer Build-Pfad: umgeht Windows MAX_PATH (Vulkan-Shader-Gen, siehe BUILD.md)
+# und haelt die multi-GB target/-Artefakte aus dem OneDrive-Sync heraus.
+target-dir = "C:/h"

@@ -244,6 +244,7 @@
         "app": "App",
         "output": "Ausgabe",
         "transcription": "Transkription",
+        "dictionary": "Wörterbuch",
         "history": "Verlauf",
         "experimental": "Experimentell"
       },
@@ -341,6 +342,30 @@
       "translateToEnglish": {
         "label": "Ins Englische übersetzen",
         "description": "Sprache aus anderen Sprachen automatisch während der Transkription ins Englische übersetzen."
+      },
+      "smartFormat": {
+        "label": "Intelligente Formatierung",
+        "description": "Normalisiert Interpunktion, Leerzeichen und Satzanfangs-Großschreibung des Diktats."
+      },
+      "spokenCommands": {
+        "label": "Sprachbefehle",
+        "description": "Wandelt gesprochene Befehle wie „neue Zeile“ oder „Punkt“ in Formatierung um."
+      },
+      "textReplacements": {
+        "title": "Text-Ersetzungen",
+        "description": "Ersetzt ein diktiertes Wort oder eine Phrase automatisch durch anderen Text (z. B. \"vs code\" \u2192 \"VS Code\").",
+        "patternPlaceholder": "Gesprochener Text",
+        "replacementPlaceholder": "Ersetzen durch",
+        "add": "Hinzuf\u00fcgen",
+        "remove": "Ersetzung {{pattern}} entfernen"
+      },
+      "snippets": {
+        "title": "Snippets",
+        "description": "F\u00fcgt einen gespeicherten Textbaustein ein, wenn du beim Diktieren die Trigger-Phrase sagst.",
+        "triggerPlaceholder": "Trigger-Phrase (z. B. \"meine Signatur\")",
+        "bodyPlaceholder": "Einzuf\u00fcgender Text",
+        "add": "Hinzuf\u00fcgen",
+        "remove": "Snippet {{trigger}} entfernen"
       },
       "modelUnload": {
         "title": "Modell entladen",
