@@ -110,6 +110,21 @@ pub struct Snippet {
     pub body: String,
 }
 
+/// Per-app dictation profile, matched against the foreground executable
+/// name (case-insensitive substring, e.g. "whatsapp").
+#[derive(Serialize, Deserialize, Debug, Clone, Type)]
+pub struct AppProfile {
+    pub exe_match: String,
+    /// LLM prompt to use for this app (id from `post_process_prompts`);
+    /// None keeps the globally selected prompt.
+    #[serde(default)]
+    pub prompt_id: Option<String>,
+    /// Overrides whether LLM post-processing runs for this app;
+    /// None follows the global toggle.
+    #[serde(default)]
+    pub post_process: Option<bool>,
+}
+
 #[derive(Serialize, Deserialize, Debug, Clone, Type)]
 pub struct PostProcessProvider {
     pub id: String,
@@ -453,6 +468,8 @@ pub struct AppSettings {
     /// back to the local model on any error.
     #[serde(default)]
     pub cloud_transcription_enabled: bool,
+    #[serde(default)]
+    pub app_profiles: Vec<AppProfile>,
     #[serde(default)]
     pub transcribe_accelerator: TranscribeAcceleratorSetting,
     #[serde(default)]
@@ -930,6 +947,7 @@ pub fn get_default_settings() -> AppSettings {
         text_replacements: Vec::new(),
         snippets: Vec::new(),
         cloud_transcription_enabled: false,
+        app_profiles: Vec::new(),
         transcribe_accelerator: TranscribeAcceleratorSetting::default(),
         ort_accelerator: OrtAcceleratorSetting::default(),
         transcribe_gpu_device: default_transcribe_gpu_device(),

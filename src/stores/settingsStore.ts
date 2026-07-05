@@ -8,6 +8,7 @@ import type {
   OrtAcceleratorSetting,
   TextReplacement,
   Snippet,
+  AppProfile,
 } from "@/bindings";
 import { commands } from "@/bindings";
 
@@ -130,6 +131,7 @@ const settingUpdaters: {
   text_replacements: (value) =>
     commands.updateTextReplacements(value as TextReplacement[]),
   snippets: (value) => commands.updateSnippets(value as Snippet[]),
+  app_profiles: (value) => commands.updateAppProfiles(value as AppProfile[]),
   word_correction_threshold: (value) =>
     commands.changeWordCorrectionThresholdSetting(value as number),
   paste_delay_ms: (value) =>

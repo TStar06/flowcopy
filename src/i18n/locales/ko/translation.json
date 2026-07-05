@@ -250,6 +250,7 @@
         "output": "출력",
         "transcription": "전사",
         "dictionary": "Dictionary",
+        "appProfiles": "Per-app profiles",
         "history": "히스토리",
         "experimental": "실험적"
       },
@@ -356,6 +357,17 @@
         "label": "Spoken commands",
         "description": "Converts spoken commands like \u201cnew line\u201d or \u201cperiod\u201d into formatting."
       },
+      "appProfiles": {
+        "title": "Per-app profiles",
+        "description": "Apply a specific tone/prompt or disable AI cleanup for individual apps, matched by executable name.",
+        "exePlaceholder": "App (e.g. whatsapp)",
+        "defaultPrompt": "Default prompt",
+        "cleanupDefault": "Cleanup: default",
+        "cleanupOn": "Cleanup: on",
+        "cleanupOff": "Cleanup: off",
+        "add": "Add",
+        "remove": "Remove profile {{exe}}"
+      },
       "textReplacements": {
         "title": "Text replacements",
         "description": "Automatically replace a dictated word or phrase with another text (e.g. \"vs code\" \u2192 \"VS Code\").",
@@ -454,6 +466,14 @@
       }
     },
     "history": {
+      "searchPlaceholder": "Search history...",
+      "noSearchResults": "No matches found",
+      "stats": {
+        "words": "Words",
+        "dictations": "Dictations",
+        "streak": "Day streak",
+        "wpm": "Avg. WPM"
+      },
       "title": "히스토리",
       "openFolder": "녹음 폴더 열기",
       "loading": "히스토리 로딩 중...",

@@ -1,4 +1,5 @@
 mod actions;
+mod active_app;
 #[cfg(all(target_os = "macos", target_arch = "aarch64"))]
 mod apple_intelligence;
 mod audio_feedback;
@@ -572,6 +573,7 @@ pub fn run(cli_args: CliArgs) {
             shortcut::update_custom_words,
             shortcut::update_text_replacements,
             shortcut::update_snippets,
+            shortcut::update_app_profiles,
             shortcut::suspend_binding,
             shortcut::resume_binding,
             shortcut::change_mute_while_recording_setting,
@@ -635,6 +637,8 @@ pub fn run(cli_args: CliArgs) {
             commands::transcription::get_model_load_status,
             commands::transcription::unload_model_manually,
             commands::history::get_history_entries,
+            commands::history::search_history,
+            commands::history::get_history_stats,
             commands::history::toggle_history_entry_saved,
             commands::history::get_audio_file_path,
             commands::history::delete_history_entry,

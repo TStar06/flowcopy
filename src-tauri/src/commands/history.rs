@@ -1,6 +1,6 @@
 use crate::actions::process_transcription_output;
 use crate::managers::{
-    history::{HistoryManager, PaginatedHistory},
+    history::{HistoryManager, HistoryStats, PaginatedHistory},
     transcription::TranscriptionManager,
 };
 use std::sync::Arc;
@@ -18,6 +18,31 @@ pub async fn get_history_entries(
         .get_history_entries(cursor, limit)
         .await
         .map_err(|e| e.to_string())
+}
+
+#[tauri::command]
+#[specta::specta]
+pub async fn search_history(
+    _app: AppHandle,
+    history_manager: State<'_, Arc<HistoryManager>>,
+    query: String,
+    limit: Option<u32>,
+) -> Result<Vec<crate::managers::history::HistoryEntry>, String> {
+    if query.trim().is_empty() {
+        return Ok(Vec::new());
+    }
+    history_manager
+        .search_entries(query.trim(), limit.unwrap_or(50) as usize)
+        .map_err(|e| e.to_string())
+}
+
+#[tauri::command]
+#[specta::specta]
+pub async fn get_history_stats(
+    _app: AppHandle,
+    history_manager: State<'_, Arc<HistoryManager>>,
+) -> Result<HistoryStats, String> {
+    history_manager.get_stats().map_err(|e| e.to_string())
 }
 
 #[tauri::command]
@@ -93,8 +118,13 @@ pub async fn retry_history_entry_transcription(
         return Err("Recording contains no speech".to_string());
     }
 
-    let processed =
-        process_transcription_output(&app, &transcription, entry.post_process_requested).await;
+    let processed = process_transcription_output(
+        &app,
+        &transcription,
+        entry.post_process_requested,
+        entry.app_name.as_deref(),
+    )
+    .await;
     history_manager
         .update_transcription(
             id,

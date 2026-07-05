@@ -31,6 +31,9 @@ static MIGRATIONS: &[M] = &[
     M::up("ALTER TABLE transcription_history ADD COLUMN post_processed_text TEXT;"),
     M::up("ALTER TABLE transcription_history ADD COLUMN post_process_prompt TEXT;"),
     M::up("ALTER TABLE transcription_history ADD COLUMN post_process_requested BOOLEAN NOT NULL DEFAULT 0;"),
+    M::up("ALTER TABLE transcription_history ADD COLUMN app_name TEXT;"),
+    M::up("ALTER TABLE transcription_history ADD COLUMN duration_ms INTEGER;"),
+    M::up("ALTER TABLE transcription_history ADD COLUMN word_count INTEGER;"),
 ];
 
 #[derive(Clone, Debug, Serialize, Deserialize, Type)]
@@ -63,6 +66,21 @@ pub struct HistoryEntry {
     pub post_processed_text: Option<String>,
     pub post_process_prompt: Option<String>,
     pub post_process_requested: bool,
+    pub app_name: Option<String>,
+    pub duration_ms: Option<i64>,
+    pub word_count: Option<i64>,
+}
+
+/// Aggregated dictation statistics for the history header card.
+#[derive(Clone, Debug, Serialize, Deserialize, Type)]
+pub struct HistoryStats {
+    pub total_entries: i64,
+    pub total_words: i64,
+    pub total_duration_ms: i64,
+    /// Consecutive days with at least one dictation, ending today.
+    pub streak_days: i64,
+    /// Average speaking speed in words per minute (0 when unknown).
+    pub average_wpm: f64,
 }
 
 pub struct HistoryManager {
@@ -207,6 +225,9 @@ impl HistoryManager {
             post_processed_text: row.get("post_processed_text")?,
             post_process_prompt: row.get("post_process_prompt")?,
             post_process_requested: row.get("post_process_requested")?,
+            app_name: row.get("app_name")?,
+            duration_ms: row.get("duration_ms")?,
+            word_count: row.get("word_count")?,
         })
     }
 
@@ -216,6 +237,7 @@ impl HistoryManager {
 
     /// Save a new history entry to the database.
     /// The WAV file should already have been written to the recordings directory.
+    #[allow(clippy::too_many_arguments)]
     pub fn save_entry(
         &self,
         file_name: String,
@@ -223,6 +245,9 @@ impl HistoryManager {
         post_process_requested: bool,
         post_processed_text: Option<String>,
         post_process_prompt: Option<String>,
+        app_name: Option<String>,
+        duration_ms: Option<i64>,
+        word_count: Option<i64>,
     ) -> Result<HistoryEntry> {
         let timestamp = Utc::now().timestamp();
         let title = self.format_timestamp_title(timestamp);
@@ -237,8 +262,11 @@ impl HistoryManager {
                 transcription_text,
                 post_processed_text,
                 post_process_prompt,
-                post_process_requested
-            ) VALUES (?1, ?2, ?3, ?4, ?5, ?6, ?7, ?8)",
+                post_process_requested,
+                app_name,
+                duration_ms,
+                word_count
+            ) VALUES (?1, ?2, ?3, ?4, ?5, ?6, ?7, ?8, ?9, ?10, ?11)",
             params![
                 &file_name,
                 timestamp,
@@ -248,6 +276,9 @@ impl HistoryManager {
                 &post_processed_text,
                 &post_process_prompt,
                 post_process_requested,
+                &app_name,
+                duration_ms,
+                word_count,
             ],
         )?;
 
@@ -261,6 +292,9 @@ impl HistoryManager {
             post_processed_text,
             post_process_prompt,
             post_process_requested,
+            app_name,
+            duration_ms,
+            word_count,
         };
 
         debug!("Saved history entry with id {}", entry.id);
@@ -308,7 +342,7 @@ impl HistoryManager {
 
         let entry = conn
             .query_row(
-                "SELECT id, file_name, timestamp, saved, title, transcription_text, post_processed_text, post_process_prompt, post_process_requested
+                "SELECT id, file_name, timestamp, saved, title, transcription_text, post_processed_text, post_process_prompt, post_process_requested, app_name, duration_ms, word_count
                  FROM transcription_history WHERE id = ?1",
                 params![id],
                 Self::map_history_entry,
@@ -459,7 +493,7 @@ impl HistoryManager {
             (Some(cursor_id), Some(lim)) => {
                 let fetch_count = (lim + 1) as i64;
                 let mut stmt = conn.prepare(
-                    "SELECT id, file_name, timestamp, saved, title, transcription_text, post_processed_text, post_process_prompt, post_process_requested
+                    "SELECT id, file_name, timestamp, saved, title, transcription_text, post_processed_text, post_process_prompt, post_process_requested, app_name, duration_ms, word_count
                      FROM transcription_history
                      WHERE id < ?1
                      ORDER BY id DESC
@@ -473,7 +507,7 @@ impl HistoryManager {
             (None, Some(lim)) => {
                 let fetch_count = (lim + 1) as i64;
                 let mut stmt = conn.prepare(
-                    "SELECT id, file_name, timestamp, saved, title, transcription_text, post_processed_text, post_process_prompt, post_process_requested
+                    "SELECT id, file_name, timestamp, saved, title, transcription_text, post_processed_text, post_process_prompt, post_process_requested, app_name, duration_ms, word_count
                      FROM transcription_history
                      ORDER BY id DESC
                      LIMIT ?1",
@@ -485,7 +519,7 @@ impl HistoryManager {
             }
             (_, None) => {
                 let mut stmt = conn.prepare(
-                    "SELECT id, file_name, timestamp, saved, title, transcription_text, post_processed_text, post_process_prompt, post_process_requested
+                    "SELECT id, file_name, timestamp, saved, title, transcription_text, post_processed_text, post_process_prompt, post_process_requested, app_name, duration_ms, word_count
                      FROM transcription_history
                      ORDER BY id DESC",
                 )?;
@@ -516,7 +550,10 @@ impl HistoryManager {
                 transcription_text,
                 post_processed_text,
                 post_process_prompt,
-                post_process_requested
+                post_process_requested,
+                app_name,
+                duration_ms,
+                word_count
              FROM transcription_history
              ORDER BY timestamp DESC
              LIMIT 1",
@@ -543,7 +580,10 @@ impl HistoryManager {
                 transcription_text,
                 post_processed_text,
                 post_process_prompt,
-                post_process_requested
+                post_process_requested,
+                app_name,
+                duration_ms,
+                word_count
              FROM transcription_history
              WHERE transcription_text != ''
              ORDER BY timestamp DESC
@@ -552,6 +592,102 @@ impl HistoryManager {
 
         let entry = stmt.query_row([], Self::map_history_entry).optional()?;
         Ok(entry)
+    }
+
+    /// Full-text search (LIKE) over raw and post-processed text, newest first.
+    pub fn search_entries(&self, query: &str, limit: usize) -> Result<Vec<HistoryEntry>> {
+        let conn = self.get_connection()?;
+        let pattern = format!(
+            "%{}%",
+            query
+                .replace('\\', "\\\\")
+                .replace('%', "\\%")
+                .replace('_', "\\_")
+        );
+        let mut stmt = conn.prepare(
+            "SELECT
+                id,
+                file_name,
+                timestamp,
+                saved,
+                title,
+                transcription_text,
+                post_processed_text,
+                post_process_prompt,
+                post_process_requested,
+                app_name,
+                duration_ms,
+                word_count
+             FROM transcription_history
+             WHERE transcription_text LIKE ?1 ESCAPE '\\'
+                OR post_processed_text LIKE ?1 ESCAPE '\\'
+             ORDER BY timestamp DESC
+             LIMIT ?2",
+        )?;
+        let entries = stmt
+            .query_map(params![pattern, limit as i64], Self::map_history_entry)?
+            .collect::<rusqlite::Result<Vec<_>>>()?;
+        Ok(entries)
+    }
+
+    /// Aggregate statistics over all entries with usable data.
+    pub fn get_stats(&self) -> Result<HistoryStats> {
+        let conn = self.get_connection()?;
+        let (total_entries, total_words, total_duration_ms): (i64, i64, i64) = conn.query_row(
+            "SELECT
+                COUNT(*),
+                COALESCE(SUM(word_count), 0),
+                COALESCE(SUM(duration_ms), 0)
+             FROM transcription_history
+             WHERE transcription_text != ''",
+            [],
+            |row| Ok((row.get(0)?, row.get(1)?, row.get(2)?)),
+        )?;
+
+        let average_wpm = if total_duration_ms > 0 {
+            (total_words as f64) / (total_duration_ms as f64 / 60_000.0)
+        } else {
+            0.0
+        };
+
+        // Streak: consecutive local-time days with at least one dictation,
+        // counting backwards from today (a missing today does not yet break
+        // yesterday's streak).
+        let mut stmt = conn.prepare(
+            "SELECT DISTINCT date(timestamp, 'unixepoch', 'localtime') AS day
+             FROM transcription_history
+             ORDER BY day DESC",
+        )?;
+        let days: Vec<String> = stmt
+            .query_map([], |row| row.get::<_, String>(0))?
+            .collect::<rusqlite::Result<Vec<_>>>()?;
+
+        let today = chrono::Local::now().date_naive();
+        let mut streak_days = 0i64;
+        let mut expected = today;
+        for day in &days {
+            let Ok(parsed) = chrono::NaiveDate::parse_from_str(day, "%Y-%m-%d") else {
+                break;
+            };
+            if streak_days == 0 && parsed == today - chrono::Duration::days(1) {
+                // No dictation yet today; streak continues from yesterday.
+                expected = parsed;
+            }
+            if parsed == expected {
+                streak_days += 1;
+                expected -= chrono::Duration::days(1);
+            } else {
+                break;
+            }
+        }
+
+        Ok(HistoryStats {
+            total_entries,
+            total_words,
+            total_duration_ms,
+            streak_days,
+            average_wpm,
+        })
     }
 
     pub async fn toggle_saved_status(&self, id: i64) -> Result<()> {
@@ -597,7 +733,10 @@ impl HistoryManager {
                 transcription_text,
                 post_processed_text,
                 post_process_prompt,
-                post_process_requested
+                post_process_requested,
+                app_name,
+                duration_ms,
+                word_count
              FROM transcription_history
              WHERE id = ?1",
         )?;
@@ -666,7 +805,10 @@ mod tests {
                 transcription_text TEXT NOT NULL,
                 post_processed_text TEXT,
                 post_process_prompt TEXT,
-                post_process_requested BOOLEAN NOT NULL DEFAULT 0
+                post_process_requested BOOLEAN NOT NULL DEFAULT 0,
+                app_name TEXT,
+                duration_ms INTEGER,
+                word_count INTEGER
             );",
         )
         .expect("create transcription_history table");

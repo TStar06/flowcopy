@@ -320,6 +320,14 @@ async updateSnippets(snippets: Snippet[]) : Promise<Result<null, string>> {
     else return { status: "error", error: e  as any };
 }
 },
+async updateAppProfiles(profiles: AppProfile[]) : Promise<Result<null, string>> {
+    try {
+    return { status: "ok", data: await TAURI_INVOKE("update_app_profiles", { profiles }) };
+} catch (e) {
+    if(e instanceof Error) throw e;
+    else return { status: "error", error: e  as any };
+}
+},
 /**
  * Temporarily unregister a binding while the user is editing it in the UI.
  * This avoids firing the action while keys are being recorded.
@@ -821,6 +829,22 @@ async getHistoryEntries(cursor: number | null, limit: number | null) : Promise<R
     else return { status: "error", error: e  as any };
 }
 },
+async searchHistory(query: string, limit: number | null) : Promise<Result<HistoryEntry[], string>> {
+    try {
+    return { status: "ok", data: await TAURI_INVOKE("search_history", { query, limit }) };
+} catch (e) {
+    if(e instanceof Error) throw e;
+    else return { status: "error", error: e  as any };
+}
+},
+async getHistoryStats() : Promise<Result<HistoryStats, string>> {
+    try {
+    return { status: "ok", data: await TAURI_INVOKE("get_history_stats") };
+} catch (e) {
+    if(e instanceof Error) throw e;
+    else return { status: "error", error: e  as any };
+}
+},
 async toggleHistoryEntrySaved(id: number) : Promise<Result<null, string>> {
     try {
     return { status: "ok", data: await TAURI_INVOKE("toggle_history_entry_saved", { id }) };
@@ -902,6 +926,21 @@ streamTextEvent: "stream-text-event"
 
 /** user-defined types **/
 
+/**
+ * Per-app dictation profile, matched against the foreground executable
+ * name (case-insensitive substring, e.g. "whatsapp").
+ */
+export type AppProfile = { exe_match: string; 
+/**
+ * LLM prompt to use for this app (id from `post_process_prompts`);
+ * None keeps the globally selected prompt.
+ */
+prompt_id?: string | null; 
+/**
+ * Overrides whether LLM post-processing runs for this app;
+ * None follows the global toggle.
+ */
+post_process?: boolean | null }
 export type AppSettings = { 
 /**
  * Internal settings schema marker for one-time migrations. Fresh installs
@@ -921,7 +960,7 @@ whats_new_last_seen_version?: string; selected_model?: string; onboarding_comple
  * local model. Uses the Groq post-processing API key; silently falls
  * back to the local model on any error.
  */
-cloud_transcription_enabled?: boolean; transcribe_accelerator?: TranscribeAcceleratorSetting; ort_accelerator?: OrtAcceleratorSetting; transcribe_gpu_device?: number; extra_recording_buffer_ms?: number; vad_enabled?: boolean; 
+cloud_transcription_enabled?: boolean; app_profiles?: AppProfile[]; transcribe_accelerator?: TranscribeAcceleratorSetting; ort_accelerator?: OrtAcceleratorSetting; transcribe_gpu_device?: number; extra_recording_buffer_ms?: number; vad_enabled?: boolean; 
 /**
  * Which recording overlay to show: None / Minimal / Live. Streaming mode is
  * not gated on this — that follows model capability. Migrated from the old
@@ -942,7 +981,19 @@ export type EngineType =
  */
 "TranscribeCpp" | "Parakeet" | "Moonshine" | "MoonshineStreaming" | "SenseVoice" | "GigaAM" | "Canary" | "Cohere"
 export type GpuDeviceOption = { id: number; name: string; total_vram_mb: number }
-export type HistoryEntry = { id: number; file_name: string; timestamp: number; saved: boolean; title: string; transcription_text: string; post_processed_text: string | null; post_process_prompt: string | null; post_process_requested: boolean }
+export type HistoryEntry = { id: number; file_name: string; timestamp: number; saved: boolean; title: string; transcription_text: string; post_processed_text: string | null; post_process_prompt: string | null; post_process_requested: boolean; app_name: string | null; duration_ms: number | null; word_count: number | null }
+/**
+ * Aggregated dictation statistics for the history header card.
+ */
+export type HistoryStats = { total_entries: number; total_words: number; total_duration_ms: number; 
+/**
+ * Consecutive days with at least one dictation, ending today.
+ */
+streak_days: number; 
+/**
+ * Average speaking speed in words per minute (0 when unknown).
+ */
+average_wpm: number }
 export type HistoryUpdatePayload = { action: "added"; entry: HistoryEntry } | { action: "updated"; entry: HistoryEntry } | { action: "deleted"; id: number } | { action: "toggled"; id: number }
 /**
  * Result of changing keyboard implementation

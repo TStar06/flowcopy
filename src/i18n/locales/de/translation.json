@@ -250,6 +250,7 @@
         "output": "Ausgabe",
         "transcription": "Transkription",
         "dictionary": "Wörterbuch",
+        "appProfiles": "Per-App-Profile",
         "history": "Verlauf",
         "experimental": "Experimentell"
       },
@@ -356,6 +357,17 @@
         "label": "Sprachbefehle",
         "description": "Wandelt gesprochene Befehle wie „neue Zeile“ oder „Punkt“ in Formatierung um."
       },
+      "appProfiles": {
+        "title": "Per-App-Profile",
+        "description": "Wendet für einzelne Apps (per Exe-Name) einen bestimmten Ton/Prompt an oder schaltet den KI-Cleanup ab.",
+        "exePlaceholder": "App (z. B. whatsapp)",
+        "defaultPrompt": "Standard-Prompt",
+        "cleanupDefault": "Cleanup: Standard",
+        "cleanupOn": "Cleanup: an",
+        "cleanupOff": "Cleanup: aus",
+        "add": "Hinzufügen",
+        "remove": "Profil {{exe}} entfernen"
+      },
       "textReplacements": {
         "title": "Text-Ersetzungen",
         "description": "Ersetzt ein diktiertes Wort oder eine Phrase automatisch durch anderen Text (z. B. \"vs code\" \u2192 \"VS Code\").",
@@ -454,6 +466,14 @@
       }
     },
     "history": {
+      "searchPlaceholder": "Verlauf durchsuchen...",
+      "noSearchResults": "Keine Treffer",
+      "stats": {
+        "words": "Wörter",
+        "dictations": "Diktate",
+        "streak": "Tage-Serie",
+        "wpm": "Ø WPM"
+      },
       "title": "Verlauf",
       "openFolder": "Aufnahmeordner öffnen",
       "loading": "Verlauf wird geladen...",

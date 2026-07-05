@@ -9,6 +9,7 @@ import {
 } from "../SmartFormatting";
 import { TextReplacements } from "../TextReplacements";
 import { Snippets } from "../Snippets";
+import { AppProfiles } from "../AppProfiles";
 import { SettingsGroup } from "../../ui/SettingsGroup";
 import { StartHidden } from "../StartHidden";
 import { AutostartToggle } from "../AutostartToggle";
@@ -62,6 +63,10 @@ export const AdvancedSettings: React.FC = () => {
       <SettingsGroup title={t("settings.advanced.groups.dictionary")}>
         <TextReplacements descriptionMode="tooltip" grouped={true} />
         <Snippets descriptionMode="tooltip" grouped={true} />
+      </SettingsGroup>
+
+      <SettingsGroup title={t("settings.advanced.groups.appProfiles")}>
+        <AppProfiles descriptionMode="tooltip" grouped={true} />
       </SettingsGroup>
 
       <SettingsGroup title={t("settings.advanced.groups.history")}>

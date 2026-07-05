@@ -8,6 +8,7 @@ import {
   commands,
   events,
   type HistoryEntry,
+  type HistoryStats,
   type HistoryUpdatePayload,
 } from "@/bindings";
 import { useOsType } from "@/hooks/useOsType";
@@ -65,9 +66,46 @@ export const HistorySettings: React.FC = () => {
   const [entries, setEntries] = useState<HistoryEntry[]>([]);
   const [loading, setLoading] = useState(true);
   const [hasMore, setHasMore] = useState(true);
+  const [searchQuery, setSearchQuery] = useState("");
+  const [searchResults, setSearchResults] = useState<HistoryEntry[] | null>(
+    null,
+  );
+  const [stats, setStats] = useState<HistoryStats | null>(null);
   const sentinelRef = useRef<HTMLDivElement>(null);
   const entriesRef = useRef<HistoryEntry[]>([]);
   const loadingRef = useRef(false);
+
+  const loadStats = useCallback(async () => {
+    try {
+      const result = await commands.getHistoryStats();
+      if (result.status === "ok") setStats(result.data);
+    } catch (error) {
+      console.error("Failed to load history stats:", error);
+    }
+  }, []);
+
+  // Stats: initial load + refresh when entries change
+  useEffect(() => {
+    loadStats();
+  }, [loadStats, entries.length]);
+
+  // Debounced search; empty query returns to the paginated list
+  useEffect(() => {
+    const query = searchQuery.trim();
+    if (!query) {
+      setSearchResults(null);
+      return;
+    }
+    const handle = setTimeout(async () => {
+      try {
+        const result = await commands.searchHistory(query, 50);
+        if (result.status === "ok") setSearchResults(result.data);
+      } catch (error) {
+        console.error("History search failed:", error);
+      }
+    }, 250);
+    return () => clearTimeout(handle);
+  }, [searchQuery]);
 
   // Keep ref in sync for use in IntersectionObserver callback
   useEffect(() => {
@@ -234,25 +272,30 @@ export const HistorySettings: React.FC = () => {
     }
   };
 
+  const displayedEntries = searchResults ?? entries;
+  const isSearching = searchResults !== null;
+
   let content: React.ReactNode;
 
-  if (loading) {
+  if (loading && !isSearching) {
     content = (
       <div className="px-4 py-3 text-center text-text/60">
         {t("settings.history.loading")}
       </div>
     );
-  } else if (entries.length === 0) {
+  } else if (displayedEntries.length === 0) {
     content = (
       <div className="px-4 py-3 text-center text-text/60">
-        {t("settings.history.empty")}
+        {isSearching
+          ? t("settings.history.noSearchResults")
+          : t("settings.history.empty")}
       </div>
     );
   } else {
     content = (
       <>
         <div className="divide-y divide-mid-gray/20">
-          {entries.map((entry) => (
+          {displayedEntries.map((entry) => (
             <HistoryEntryComponent
               key={entry.id}
               entry={entry}
@@ -264,25 +307,54 @@ export const HistorySettings: React.FC = () => {
             />
           ))}
         </div>
-        {/* Sentinel for infinite scroll */}
-        <div ref={sentinelRef} className="h-1" />
+        {/* Sentinel for infinite scroll (disabled while searching) */}
+        {!isSearching && <div ref={sentinelRef} className="h-1" />}
       </>
     );
   }
 
   return (
     <div className="max-w-3xl w-full mx-auto space-y-6">
+      {stats && stats.total_entries > 0 && (
+        <div className="grid grid-cols-4 gap-2 px-4">
+          <StatCard
+            value={stats.total_words.toLocaleString()}
+            label={t("settings.history.stats.words")}
+          />
+          <StatCard
+            value={stats.total_entries.toLocaleString()}
+            label={t("settings.history.stats.dictations")}
+          />
+          <StatCard
+            value={`${stats.streak_days}`}
+            label={t("settings.history.stats.streak")}
+          />
+          <StatCard
+            value={stats.average_wpm > 0 ? stats.average_wpm.toFixed(0) : "–"}
+            label={t("settings.history.stats.wpm")}
+          />
+        </div>
+      )}
       <div className="space-y-2">
-        <div className="px-4 flex items-center justify-between">
+        <div className="px-4 flex items-center justify-between gap-2">
           <div>
             <h2 className="text-xs font-medium text-mid-gray uppercase tracking-wide">
               {t("settings.history.title")}
             </h2>
           </div>
-          <OpenRecordingsButton
-            onClick={openRecordingsFolder}
-            label={t("settings.history.openFolder")}
-          />
+          <div className="flex items-center gap-2">
+            <input
+              type="text"
+              value={searchQuery}
+              onChange={(e) => setSearchQuery(e.target.value)}
+              placeholder={t("settings.history.searchPlaceholder")}
+              className="px-2 py-1 text-sm bg-mid-gray/10 border border-mid-gray/80 rounded-md focus:outline-none focus:border-logo-primary w-48"
+            />
+            <OpenRecordingsButton
+              onClick={openRecordingsFolder}
+              label={t("settings.history.openFolder")}
+            />
+          </div>
         </div>
         <div className="bg-background border border-mid-gray/20 rounded-lg overflow-visible">
           {content}
@@ -291,6 +363,16 @@ export const HistorySettings: React.FC = () => {
     </div>
   );
 };
+
+const StatCard: React.FC<{ value: string; label: string }> = ({
+  value,
+  label,
+}) => (
+  <div className="bg-background border border-mid-gray/20 rounded-lg px-3 py-2 text-center">
+    <div className="text-lg font-semibold">{value}</div>
+    <div className="text-xs text-text/60">{label}</div>
+  </div>
+);
 
 interface HistoryEntryProps {
   entry: HistoryEntry;

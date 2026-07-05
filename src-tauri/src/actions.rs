@@ -74,7 +74,11 @@ fn is_blank_transcription(transcription: &str) -> bool {
     transcription.trim().is_empty()
 }
 
-async fn post_process_transcription(settings: &AppSettings, transcription: &str) -> Option<String> {
+async fn post_process_transcription(
+    settings: &AppSettings,
+    transcription: &str,
+    prompt_id_override: Option<&str>,
+) -> Option<String> {
     if is_blank_transcription(transcription) {
         debug!("Post-processing skipped because the transcription is empty");
         return None;
@@ -102,8 +106,11 @@ async fn post_process_transcription(settings: &AppSettings, transcription: &str)
         return None;
     }
 
-    let selected_prompt_id = match &settings.post_process_selected_prompt_id {
-        Some(id) => id.clone(),
+    let selected_prompt_id = match prompt_id_override
+        .map(|id| id.to_string())
+        .or_else(|| settings.post_process_selected_prompt_id.clone())
+    {
+        Some(id) => id,
         None => {
             debug!("Post-processing skipped because no prompt is selected");
             return None;
@@ -391,6 +398,7 @@ pub(crate) async fn process_transcription_output(
     app: &AppHandle,
     transcription: &str,
     post_process: bool,
+    active_exe: Option<&str>,
 ) -> ProcessedTranscription {
     let settings = get_settings(app);
     let mut final_text = transcription.to_string();
@@ -407,15 +415,35 @@ pub(crate) async fn process_transcription_output(
         final_text = converted_text;
     }
 
+    // Per-app profile: first entry whose exe_match is contained in the
+    // foreground executable name wins.
+    let profile = active_exe.and_then(|exe| {
+        settings.app_profiles.iter().find(|p| {
+            let needle = p.exe_match.trim().to_lowercase();
+            !needle.is_empty() && exe.to_lowercase().contains(&needle)
+        })
+    });
+    let prompt_override = profile.and_then(|p| p.prompt_id.clone());
+
     // Wispr-style behavior: once the post-processing toggle is on, LLM
     // cleanup applies to every dictation — the dedicated post-process
-    // binding additionally forces it regardless of the toggle.
-    if post_process || settings.post_process_enabled {
-        if let Some(processed_text) = post_process_transcription(&settings, &final_text).await {
+    // binding additionally forces it, and a per-app profile can override
+    // the toggle in either direction.
+    let llm_enabled = match profile.and_then(|p| p.post_process) {
+        Some(override_flag) => override_flag || post_process,
+        None => post_process || settings.post_process_enabled,
+    };
+    if llm_enabled {
+        if let Some(processed_text) =
+            post_process_transcription(&settings, &final_text, prompt_override.as_deref()).await
+        {
             post_processed_text = Some(processed_text.clone());
             final_text = processed_text;
 
-            if let Some(prompt_id) = &settings.post_process_selected_prompt_id {
+            let effective_prompt_id = prompt_override
+                .clone()
+                .or_else(|| settings.post_process_selected_prompt_id.clone());
+            if let Some(prompt_id) = &effective_prompt_id {
                 if let Some(prompt) = settings
                     .post_process_prompts
                     .iter()
@@ -620,6 +648,9 @@ impl ShortcutAction for TranscribeAction {
         let binding_id = binding_id.to_string(); // Clone binding_id for the async task
         let post_process = self.post_process;
         let cancel_generation = rm.cancel_generation();
+        // Captured now, while the target app still owns the foreground
+        // window — used for per-app profiles and history.
+        let active_exe = crate::active_app::foreground_app_exe();
 
         tauri::async_runtime::spawn(async move {
             let _guard = FinishGuard(ah.clone());
@@ -755,9 +786,13 @@ impl ShortcutAction for TranscribeAction {
                                     show_processing_overlay(&ah);
                                 }
                             }
-                            let processed =
-                                process_transcription_output(&ah, &transcription, post_process)
-                                    .await;
+                            let processed = process_transcription_output(
+                                &ah,
+                                &transcription,
+                                post_process,
+                                active_exe.as_deref(),
+                            )
+                            .await;
 
                             if rm.was_cancelled_since(cancel_generation) {
                                 debug!("Transcription operation cancelled before paste");
@@ -768,12 +803,19 @@ impl ShortcutAction for TranscribeAction {
 
                             // Save to history if WAV was saved
                             if wav_saved {
+                                let duration_ms = (sample_count as i64 * 1000)
+                                    / crate::audio_toolkit::constants::WHISPER_SAMPLE_RATE as i64;
+                                let word_count =
+                                    processed.final_text.split_whitespace().count() as i64;
                                 if let Err(err) = hm.save_entry(
                                     file_name,
                                     transcription,
                                     post_process,
                                     processed.post_processed_text.clone(),
                                     processed.post_process_prompt.clone(),
+                                    active_exe.clone(),
+                                    Some(duration_ms),
+                                    Some(word_count),
                                 ) {
                                     error!("Failed to save history entry: {}", err);
                                 }
@@ -835,6 +877,9 @@ impl ShortcutAction for TranscribeAction {
                                     file_name,
                                     String::new(),
                                     post_process,
+                                    None,
+                                    None,
+                                    active_exe.clone(),
                                     None,
                                     None,
                                 ) {
