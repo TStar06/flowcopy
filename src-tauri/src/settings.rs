@@ -795,6 +795,24 @@ fn ensure_post_process_defaults(settings: &mut AppSettings) -> bool {
         }
     }
 
+    // Add newly shipped default prompts to existing stores (matched by id,
+    // never overwriting user edits), and make sure a prompt is selected so
+    // enabling post-processing works without extra setup.
+    for prompt in default_post_process_prompts() {
+        if !settings
+            .post_process_prompts
+            .iter()
+            .any(|p| p.id == prompt.id)
+        {
+            settings.post_process_prompts.push(prompt);
+            changed = true;
+        }
+    }
+    if settings.post_process_selected_prompt_id.is_none() {
+        settings.post_process_selected_prompt_id = Some("default_dictation_cleanup".to_string());
+        changed = true;
+    }
+
     changed
 }
 
