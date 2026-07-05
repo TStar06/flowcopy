@@ -73,7 +73,7 @@
   },
   "plugins": {
     "updater": {
-      "pubkey": "dW50cnVzdGVkIGNvbW1lbnQ6IG1pbmlzaWduIHB1YmxpYyBrZXk6IENDNDI5RTIzN0VENjVDRkQKUldUOVhOWitJNTVDek9ORXdHbWtITGxGNG92ancwUWNtWnV1S3N0aS9vUGw3Y3dnRGp1RjFkR20K",
+      "pubkey": "dW50cnVzdGVkIGNvbW1lbnQ6IG1pbmlzaWduIHB1YmxpYyBrZXk6IDJBRTE3MjVBODIxNkUzREQKUldUZDR4YUNXbkxoS2tSYkY4OHA1d3hud2hFalRITHlrMGFrN1FzNzl3b2l2WkdlcDZiVFJSSGcK",
       "endpoints": [
         "https://github.com/TONIS-GITHUB-USERNAME/flowcopy/releases/latest/download/latest.json"
       ]
