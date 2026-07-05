@@ -2,15 +2,87 @@ import React, { useEffect, useMemo, useRef, useState } from "react";
 import { useTranslation } from "react-i18next";
 import { toast } from "sonner";
 import { ChevronDown } from "lucide-react";
-import type { ModelInfo } from "@/bindings";
+import { openUrl } from "@tauri-apps/plugin-opener";
+import { commands, type ModelInfo } from "@/bindings";
 import type { ModelCardStatus } from "./ModelCard";
 import ModelCard, { isLegacySource } from "./ModelCard";
 import HandyTextLogo from "../icons/HandyTextLogo";
 import { useModelStore } from "../../stores/modelStore";
+import { Button } from "../ui/Button";
+import { Input } from "../ui/Input";
 
 interface OnboardingProps {
   onModelSelected: () => void;
 }
+
+/// Optional final step: paste a free Groq key to unlock cloud transcription
+/// and LLM cleanup in one go. Skippable — everything works locally without it.
+const GroqStep: React.FC<{ onDone: () => void }> = ({ onDone }) => {
+  const { t } = useTranslation();
+  const [apiKey, setApiKey] = useState("");
+  const [saving, setSaving] = useState(false);
+
+  const handleActivate = async () => {
+    if (!apiKey.trim()) return;
+    setSaving(true);
+    try {
+      await commands.changePostProcessApiKeySetting("groq", apiKey.trim());
+      await commands.setPostProcessProvider("groq");
+      await commands.changeCloudTranscriptionEnabledSetting(true);
+      await commands.changePostProcessEnabledSetting(true);
+      toast.success(t("onboarding.groq.activated"));
+    } catch (error) {
+      console.error("Failed to store Groq key:", error);
+      toast.error(t("onboarding.groq.error"));
+      setSaving(false);
+      return;
+    }
+    onDone();
+  };
+
+  return (
+    <div className="h-screen w-screen flex flex-col items-center justify-center p-6 gap-6">
+      <HandyTextLogo width={200} />
+      <div className="max-w-md w-full space-y-4 text-center">
+        <h2 className="text-lg font-semibold">{t("onboarding.groq.title")}</h2>
+        <p className="text-sm text-text/70">{t("onboarding.groq.body")}</p>
+        <Button
+          variant="secondary"
+          size="md"
+          onClick={() => openUrl("https://console.groq.com/keys")}
+        >
+          {t("onboarding.groq.getKey")}
+        </Button>
+        <div className="flex items-center gap-2">
+          <Input
+            type="password"
+            className="flex-1"
+            value={apiKey}
+            onChange={(e) => setApiKey(e.target.value)}
+            placeholder={t("onboarding.groq.placeholder")}
+            variant="compact"
+            disabled={saving}
+          />
+          <Button
+            variant="primary"
+            size="md"
+            onClick={handleActivate}
+            disabled={!apiKey.trim() || saving}
+          >
+            {t("onboarding.groq.activate")}
+          </Button>
+        </div>
+        <button
+          type="button"
+          onClick={onDone}
+          className="text-sm text-text/60 hover:text-text transition-colors cursor-pointer"
+        >
+          {t("onboarding.groq.skip")}
+        </button>
+      </div>
+    </div>
+  );
+};
 
 const Onboarding: React.FC<OnboardingProps> = ({ onModelSelected }) => {
   const { t } = useTranslation();
@@ -26,6 +98,7 @@ const Onboarding: React.FC<OnboardingProps> = ({ onModelSelected }) => {
   } = useModelStore();
   const [selectedModelId, setSelectedModelId] = useState<string | null>(null);
   const [showAll, setShowAll] = useState(false);
+  const [step, setStep] = useState<"model" | "groq">("model");
   const hasStartedSelection = useRef(false);
 
   const isBusy = selectedModelId !== null;
@@ -78,10 +151,10 @@ const Onboarding: React.FC<OnboardingProps> = ({ onModelSelected }) => {
     ) {
       hasStartedSelection.current = true;
 
-      // Model is ready — select it and transition
+      // Model is ready — select it, then offer the optional Groq step
       selectModel(selectedModelId).then((success) => {
         if (success) {
-          onModelSelected();
+          setStep("groq");
         } else {
           toast.error(t("onboarding.errors.selectModel"));
           hasStartedSelection.current = false;
@@ -134,6 +207,10 @@ const Onboarding: React.FC<OnboardingProps> = ({ onModelSelected }) => {
   const getModelDownloadSpeed = (modelId: string): number | undefined => {
     return downloadStats[modelId]?.speed;
   };
+
+  if (step === "groq") {
+    return <GroqStep onDone={onModelSelected} />;
+  }
 
   return (
     <div className="h-screen w-screen flex flex-col p-6 gap-4 inset-0">

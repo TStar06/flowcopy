@@ -18,6 +18,16 @@
     "about": "Info"
   },
   "onboarding": {
+    "groq": {
+      "title": "Beste Qualität mit kostenlosem Groq-Key (optional)",
+      "body": "Mit einem kostenlosen Groq-API-Key transkribiert FlowCopy in der Cloud (Top-Genauigkeit, ~1 s) und räumt dein Diktat per KI auf: Füllwörter raus, Selbstkorrekturen angewendet. Anmeldung dauert 2 Minuten, nur E-Mail nötig. Ohne Key läuft alles lokal auf deinem Rechner.",
+      "getKey": "Kostenlosen API-Key holen",
+      "placeholder": "API-Key einfügen (gsk_...)",
+      "activate": "Aktivieren",
+      "skip": "Überspringen – erstmal nur lokal",
+      "activated": "Groq aktiviert – Cloud-Transkription und KI-Cleanup sind an",
+      "error": "Key konnte nicht gespeichert werden"
+    },
     "subtitle": "Wähle ein Transkriptionsmodell, um loszulegen",
     "existingModelsTitle": "Compatible Models",
     "downloadModelsTitle": "Available to Download",
