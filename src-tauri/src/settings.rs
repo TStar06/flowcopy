@@ -1,4 +1,4 @@
-use log::{debug, warn};
+use log::{debug, error, warn};
 use serde::de::{self, Visitor};
 use serde::{Deserialize, Deserializer, Serialize};
 use specta::Type;
@@ -1033,6 +1033,7 @@ pub fn load_or_create_app_settings(app: &AppHandle) -> AppSettings {
                 if updated {
                     debug!("Settings updated with defaults/migrations");
                     store.set("settings", serde_json::to_value(&settings).unwrap());
+                    let _ = store.save();
                 }
 
                 settings
@@ -1053,6 +1054,7 @@ pub fn load_or_create_app_settings(app: &AppHandle) -> AppSettings {
 
     if ensure_post_process_defaults(&mut settings) {
         store.set("settings", serde_json::to_value(&settings).unwrap());
+        let _ = store.save();
     }
 
     settings
@@ -1070,6 +1072,7 @@ pub fn get_settings(app: &AppHandle) -> AppSettings {
             Ok(mut settings) => {
                 if apply_settings_migrations(&mut settings, &settings_value) {
                     store.set("settings", serde_json::to_value(&settings).unwrap());
+                    let _ = store.save();
                 }
                 settings
             }
@@ -1087,6 +1090,7 @@ pub fn get_settings(app: &AppHandle) -> AppSettings {
 
     if ensure_post_process_defaults(&mut settings) {
         store.set("settings", serde_json::to_value(&settings).unwrap());
+        let _ = store.save();
     }
 
     settings
@@ -1160,6 +1164,12 @@ pub fn write_settings(app: &AppHandle, settings: AppSettings) {
         .expect("Failed to initialize store");
 
     store.set("settings", serde_json::to_value(&settings).unwrap());
+    // Persist to disk immediately. Without this the value only lives in the
+    // in-memory store and is lost if the app is killed before the plugin's
+    // auto-save debounce fires — which silently dropped API keys and settings.
+    if let Err(e) = store.save() {
+        error!("Failed to persist settings to disk: {}", e);
+    }
 }
 
 pub fn get_bindings(app: &AppHandle) -> HashMap<String, ShortcutBinding> {
