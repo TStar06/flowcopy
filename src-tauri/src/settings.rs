@@ -716,10 +716,16 @@ fn default_model_for_provider(provider_id: &str) -> String {
         return APPLE_INTELLIGENCE_DEFAULT_MODEL_ID.to_string();
     }
     if provider_id == "groq" {
-        return "llama-3.3-70b-versatile".to_string();
+        // 8B-instant: fuer reines Cleanup+Formatieren genauso gut wie 70B,
+        // aber ~6x niedrigere Startlatenz und 14.400 statt 1.000 Requests/Tag.
+        return "llama-3.1-8b-instant".to_string();
     }
     String::new()
 }
+
+/// The previous Groq default. Existing stores that still carry it (never
+/// deliberately chosen — no one had a key yet) are migrated to the faster 8B.
+const LEGACY_GROQ_MODEL: &str = "llama-3.3-70b-versatile";
 
 fn default_post_process_models() -> HashMap<String, String> {
     let mut map = HashMap::new();
@@ -736,8 +742,8 @@ fn default_post_process_prompts() -> Vec<LLMPrompt> {
     vec![
         LLMPrompt {
             id: "default_dictation_cleanup".to_string(),
-            name: "Diktat-Cleanup (DE/EN)".to_string(),
-            prompt: "Clean this dictated transcript (German or English):\n1. Apply self-corrections: when the speaker corrects themselves (\"nein warte\", \"ich meine\", \"ähm also eigentlich\", \"no wait\", \"I mean\", \"scratch that\", or simply restating), keep ONLY the corrected version\n2. Remove filler words (ähm, äh, halt/quasi/sozusagen when used as filler; um, uh, like as filler)\n3. Fix spelling, capitalization and punctuation\n4. Convert number words to digits (fünfundzwanzig → 25, ten percent → 10%)\n5. Format enumerations the speaker dictates (\"erstens ... zweitens ...\", \"first ... second ...\") as numbered lists\n6. Keep the original language — never translate\n\nPreserve the meaning and the speaker's wording. Do not paraphrase, do not add content, do not answer questions in the text.\n\nReturn only the cleaned transcript.\n\nTranscript:\n${output}".to_string(),
+            name: "Smart-Formatierung (DE/EN)".to_string(),
+            prompt: "You format dictated text (German or English). Return ONLY the formatted text — no comments, no quotes, no explanations.\n\nFORMATTING:\n- Detect a greeting/salutation (\"Hallo Tom\", \"Sehr geehrte Frau Müller\", \"Hi Sarah\") → put it on its own line, add the missing comma, then a blank line before the body.\n- Detect a sign-off (\"Liebe Grüße\", \"Viele Grüße\", \"Mit freundlichen Grüßen\", \"Best regards\", \"Cheers\") → put it on its own line, and the name after it on the next line.\n- Split the body into paragraphs (blank line between them) when a new thought or topic begins.\n- If the speaker dictates an enumeration (\"erstens … zweitens\", \"first … second\", several parallel points) → format it as a \"- \" list.\n- Fix punctuation and capitalization; convert number words to digits (fünfundzwanzig → 25, ten percent → 10%).\n\nCONTENT (strict):\n- Do NOT change wording, phrasing or content. Do not rewrite, shorten or add anything.\n- Apply self-corrections: if the speaker corrects themselves (\"nein warte\", \"ich meine\", \"no wait\", \"I mean\", \"scratch that\"), keep ONLY the corrected version.\n- Remove only pure filler words (\"ähm\", \"äh\", \"halt\", \"um\", \"uh\") and stutters.\n- Do not invent a greeting or sign-off that was not dictated. Never translate — keep the speaker's language.\n\nEXAMPLE\nInput: hallo tom äh ich wollte kurz bescheid geben dass das meeting morgen auf 14 uhr verschoben wurde bitte bring die unterlagen mit liebe grüße toni\nOutput:\nHallo Tom,\n\nich wollte kurz Bescheid geben, dass das Meeting morgen auf 14 Uhr verschoben wurde. Bitte bring die Unterlagen mit.\n\nLiebe Grüße\nToni\n\nTranscript:\n${output}".to_string(),
         },
         LLMPrompt {
             id: "default_tone_formal".to_string(),
@@ -817,22 +823,41 @@ fn ensure_post_process_defaults(settings: &mut AppSettings) -> bool {
         }
     }
 
-    // Add newly shipped default prompts to existing stores (matched by id,
-    // never overwriting user edits), and make sure a prompt is selected so
-    // enabling post-processing works without extra setup.
-    for prompt in default_post_process_prompts() {
-        if !settings
+    // Keep the shipped "default_*" prompts in sync with the current app
+    // version: add missing ones, and refresh the text/name of existing ones
+    // (these are app-managed, not user-authored). User-created prompts have
+    // other ids and are never touched.
+    for shipped in default_post_process_prompts() {
+        match settings
             .post_process_prompts
-            .iter()
-            .any(|p| p.id == prompt.id)
+            .iter_mut()
+            .find(|p| p.id == shipped.id)
         {
-            settings.post_process_prompts.push(prompt);
-            changed = true;
+            Some(existing) => {
+                if existing.prompt != shipped.prompt || existing.name != shipped.name {
+                    existing.prompt = shipped.prompt;
+                    existing.name = shipped.name;
+                    changed = true;
+                }
+            }
+            None => {
+                settings.post_process_prompts.push(shipped);
+                changed = true;
+            }
         }
     }
     if settings.post_process_selected_prompt_id.is_none() {
         settings.post_process_selected_prompt_id = Some("default_dictation_cleanup".to_string());
         changed = true;
+    }
+
+    // Migrate the old Groq default model to the faster 8B (no one deliberately
+    // picked 70B — it was only ever written as an auto-default).
+    if let Some(groq_model) = settings.post_process_models.get_mut("groq") {
+        if groq_model.as_str() == LEGACY_GROQ_MODEL {
+            *groq_model = default_model_for_provider("groq");
+            changed = true;
+        }
     }
 
     changed
