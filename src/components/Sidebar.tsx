@@ -60,7 +60,9 @@ export const SECTIONS_CONFIG = {
     labelKey: "sidebar.postProcessing",
     icon: Sparkles,
     component: PostProcessingSettings,
-    enabled: (settings) => settings?.post_process_enabled ?? false,
+    // Always visible: this is where the (free) Groq cloud key is set up,
+    // a core FlowCopy feature — must be reachable before it's enabled.
+    enabled: () => true,
   },
   debug: {
     labelKey: "sidebar.debug",

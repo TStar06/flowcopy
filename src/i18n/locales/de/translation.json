@@ -422,6 +422,15 @@
       }
     },
     "postProcessing": {
+      "quickstart": {
+        "title": "Schnellstart mit Groq (kostenlos)",
+        "body": "F?r schnellste Transkription und automatische Formatierung (Anrede und Gru?formel auf eigener Zeile): hol dir einen kostenlosen Groq-API-Key ? Anmeldung nur mit E-Mail, keine Kreditkarte ? und f?ge ihn unten ins API-Key-Feld ein.",
+        "getKey": "Kostenlosen Groq-Key holen",
+        "cloudLabel": "Cloud-Transkription (Groq)",
+        "cloudDescription": "In der Cloud statt lokal transkribieren ? etwa 1 Sekunde, unabh?ngig von deinem Rechner.",
+        "cleanupLabel": "KI-Cleanup & Formatierung",
+        "cleanupDescription": "Entfernt F?llw?rter, wendet Selbstkorrekturen an und formatiert den Text bei jedem Diktat automatisch."
+      },
       "hotkey": {
         "title": "Tastenkürzel"
       },

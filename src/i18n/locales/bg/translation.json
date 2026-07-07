@@ -422,6 +422,15 @@
       }
     },
     "postProcessing": {
+      "quickstart": {
+        "title": "Quick start with Groq (free)",
+        "body": "For the fastest transcription and automatic formatting (greetings and sign-offs on their own line), get a free Groq API key ? email signup, no credit card ? and paste it into the API key field below.",
+        "getKey": "Get free Groq key",
+        "cloudLabel": "Cloud transcription (Groq)",
+        "cloudDescription": "Transcribe in the cloud instead of locally ? about 1 second, independent of your computer.",
+        "cleanupLabel": "AI cleanup & formatting",
+        "cleanupDescription": "Remove filler words, apply self-corrections, and format text automatically on every dictation."
+      },
       "hotkey": {
         "title": "Бърз клавиш"
       },
