@@ -223,8 +223,8 @@
       },
       "cloudTranscription": {
         "group": "Cloud-Transkription",
-        "label": "?ber Groq-Cloud transkribieren",
-        "description": "Nutzt Groq whisper-large-v3-turbo (kostenloser API-Key n?tig, gleicher Key wie Nachbearbeitung). H?chste Qualit?t und Geschwindigkeit; f?llt offline automatisch auf das lokale Modell zur?ck."
+        "label": "Über Groq-Cloud transkribieren",
+        "description": "Nutzt Groq whisper-large-v3-turbo (kostenloser API-Key nötig, gleicher Key wie Nachbearbeitung). Höchste Qualität und Geschwindigkeit; fällt offline automatisch auf das lokale Modell zurück."
       },
       "pushToTalk": {
         "label": "Push-to-Talk",
@@ -380,18 +380,18 @@
       },
       "textReplacements": {
         "title": "Text-Ersetzungen",
-        "description": "Ersetzt ein diktiertes Wort oder eine Phrase automatisch durch anderen Text (z. B. \"vs code\" \u2192 \"VS Code\").",
+        "description": "Ersetzt ein diktiertes Wort oder eine Phrase automatisch durch anderen Text (z. B. \"vs code\" → \"VS Code\").",
         "patternPlaceholder": "Gesprochener Text",
         "replacementPlaceholder": "Ersetzen durch",
-        "add": "Hinzuf\u00fcgen",
+        "add": "Hinzufügen",
         "remove": "Ersetzung {{pattern}} entfernen"
       },
       "snippets": {
         "title": "Snippets",
-        "description": "F\u00fcgt einen gespeicherten Textbaustein ein, wenn du beim Diktieren die Trigger-Phrase sagst.",
+        "description": "Fügt einen gespeicherten Textbaustein ein, wenn du beim Diktieren die Trigger-Phrase sagst.",
         "triggerPlaceholder": "Trigger-Phrase (z. B. \"meine Signatur\")",
-        "bodyPlaceholder": "Einzuf\u00fcgender Text",
-        "add": "Hinzuf\u00fcgen",
+        "bodyPlaceholder": "Einzufügender Text",
+        "add": "Hinzufügen",
         "remove": "Snippet {{trigger}} entfernen"
       },
       "modelUnload": {
@@ -424,12 +424,12 @@
     "postProcessing": {
       "quickstart": {
         "title": "Schnellstart mit Groq (kostenlos)",
-        "body": "F?r schnellste Transkription und automatische Formatierung (Anrede und Gru?formel auf eigener Zeile): hol dir einen kostenlosen Groq-API-Key ? Anmeldung nur mit E-Mail, keine Kreditkarte ? und f?ge ihn unten ins API-Key-Feld ein.",
+        "body": "Für schnellste Transkription und automatische Formatierung (Anrede und Grußformel auf eigener Zeile): hol dir einen kostenlosen Groq-API-Key – Anmeldung nur mit E-Mail, keine Kreditkarte – und füge ihn unten ins API-Key-Feld ein.",
         "getKey": "Kostenlosen Groq-Key holen",
         "cloudLabel": "Cloud-Transkription (Groq)",
-        "cloudDescription": "In der Cloud statt lokal transkribieren ? etwa 1 Sekunde, unabh?ngig von deinem Rechner.",
+        "cloudDescription": "In der Cloud statt lokal transkribieren – etwa 1 Sekunde, unabhängig von deinem Rechner.",
         "cleanupLabel": "KI-Cleanup & Formatierung",
-        "cleanupDescription": "Entfernt F?llw?rter, wendet Selbstkorrekturen an und formatiert den Text bei jedem Diktat automatisch."
+        "cleanupDescription": "Entfernt Füllwörter, wendet Selbstkorrekturen an und formatiert den Text bei jedem Diktat automatisch."
       },
       "hotkey": {
         "title": "Tastenkürzel"

@@ -1,8 +1,7 @@
 import React from "react";
 import { useTranslation } from "react-i18next";
-import { Cog, FlaskConical, History, Info, Sparkles, Cpu } from "lucide-react";
+import { Cog, FlaskConical, History, Info, Sparkles, Cpu, Mic } from "lucide-react";
 import HandyTextLogo from "./icons/HandyTextLogo";
-import HandyHand from "./icons/HandyHand";
 import { useSettings } from "../hooks/useSettings";
 import {
   GeneralSettings,
@@ -34,7 +33,7 @@ interface SectionConfig {
 export const SECTIONS_CONFIG = {
   general: {
     labelKey: "sidebar.general",
-    icon: HandyHand,
+    icon: Mic,
     component: GeneralSettings,
     enabled: () => true,
   },
@@ -95,9 +94,11 @@ export const Sidebar: React.FC<SidebarProps> = ({
     .map(([id, config]) => ({ id: id as SidebarSection, ...config }));
 
   return (
-    <div className="flex flex-col w-40 h-full border-e border-mid-gray/20 items-center px-2">
-      <HandyTextLogo width={120} className="m-4" />
-      <div className="flex flex-col w-full items-center gap-1 pt-2 border-t border-mid-gray/20">
+    <div className="flex flex-col w-40 h-full border-e border-mid-gray/20 items-center px-2 bg-white/[0.015]">
+      <div className="w-full flex items-center justify-center pt-5 pb-4">
+        <HandyTextLogo width={128} />
+      </div>
+      <div className="flex flex-col w-full items-center gap-1 pt-3 border-t border-mid-gray/15">
         {availableSections.map((section) => {
           const Icon = section.icon;
           const isActive = activeSection === section.id;
@@ -107,14 +108,14 @@ export const Sidebar: React.FC<SidebarProps> = ({
               key={section.id}
               className={`flex gap-2 items-center p-2 w-full rounded-lg cursor-pointer transition-colors ${
                 isActive
-                  ? "bg-logo-primary/80"
-                  : "hover:bg-mid-gray/20 hover:opacity-100 opacity-85"
+                  ? "bg-logo-primary/20 text-text"
+                  : "hover:bg-mid-gray/20 text-text/75 hover:text-text"
               }`}
               onClick={() => onSectionChange(section.id)}
             >
-              <Icon width={24} height={24} className="shrink-0" />
+              <Icon width={20} height={20} className="shrink-0" />
               <p
-                className="text-sm font-medium truncate"
+                className={`text-sm truncate ${isActive ? "font-semibold" : "font-medium"}`}
                 title={t(section.labelKey)}
               >
                 {t(section.labelKey)}
@@ -122,6 +123,12 @@ export const Sidebar: React.FC<SidebarProps> = ({
             </div>
           );
         })}
+      </div>
+      <div className="mt-auto w-full pb-3 pt-4 text-center">
+        {/* eslint-disable-next-line i18next/no-literal-string */}
+        <p className="text-[10px] uppercase tracking-wider text-mid-gray/70">
+          Car-Controlling · intern
+        </p>
       </div>
     </div>
   );

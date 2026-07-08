@@ -1,27 +1,31 @@
-/* CC Speak Colors — dunkles Firmen-Design (Car-Controlling).
-   Dunkelmodus wird erzwungen (unabhaengig vom System), damit das interne Tool
-   ueberall gleich aussieht. Die Akzentfarbe (--color-logo-primary /
-   --color-background-ui) ist ein PLATZHALTER (Blau) und wird durch die echte
-   Firmenfarbe aus dem Logo ersetzt. */
+/* CC Speak Colors — dunkles, monochromes Firmen-Design (Car-Controlling).
+   Passend zum eleganten Schwarz-Weiss-Logo: dunkler Hintergrund, helle Schrift,
+   Silber/Weiss als Akzent. Dunkelmodus wird erzwungen (unabhaengig vom System),
+   damit das interne Tool ueberall gleich aussieht.
+
+   Akzent-Logik (monochrom):
+   - --color-logo-primary  = Silber. Feine Akzente: Aufnahme-Punkt, Waveform,
+     aktive Navigation (als Wash), Fortschritt, Links.
+   - --color-background-ui = helles Weiss = Fuellfarbe der Primaer-Buttons;
+     die Button-Schrift ist dunkel (siehe Button.tsx). */
 
 :root {
-  --color-text: #e6e8eb;
-  --color-background: #16191e;
-  /* Akzent (Buttons/aktiv) — TODO: durch Logo-Firmenfarbe ersetzen */
-  --color-background-ui: #2f6fd0;
-  --color-logo-primary: #4c8bf5;
-  --color-logo-stroke: #e6e8eb;
-  --color-text-stroke: #16191e;
-  --color-mid-gray: #8b9198;
+  --color-text: #e9ebee;
+  --color-background: #14171c;
+  --color-background-ui: #e9ebee;
+  --color-logo-primary: #cfd4db;
+  --color-logo-stroke: #e9ebee;
+  --color-text-stroke: #14171c;
+  --color-mid-gray: #8a9099;
 }
 
-/* Kein Hell-Modus-Override: das Firmen-Tool ist konsequent dunkel. Das
-   System-Dark-Media-Query bleibt nur, um dieselben Werte zu bekraeftigen. */
+/* Kein Hell-Modus: das Firmen-Tool ist konsequent dunkel. Der Dark-Media-Query
+   bekraeftigt nur dieselben Werte. */
 @media (prefers-color-scheme: dark) {
   :root {
-    --color-text: #e6e8eb;
-    --color-background: #16191e;
-    --color-logo-primary: #4c8bf5;
-    --color-logo-stroke: #e6e8eb;
+    --color-text: #e9ebee;
+    --color-background: #14171c;
+    --color-logo-primary: #cfd4db;
+    --color-logo-stroke: #e9ebee;
   }
 }
