@@ -20,7 +20,7 @@
   "onboarding": {
     "groq": {
       "title": "Best quality with a free Groq key (optional)",
-      "body": "With a free Groq API key, FlowCopy transcribes in the cloud (top accuracy, ~1s) and cleans up your dictation with AI: filler words removed, self-corrections applied. Sign-up takes 2 minutes, only an e-mail is needed. Without a key everything runs locally on your machine.",
+      "body": "With a free Groq API key, CC Speak transcribes in the cloud (top accuracy, ~1s) and cleans up your dictation with AI: filler words removed, self-corrections applied. Sign-up takes 2 minutes, only an e-mail is needed. Without a key everything runs locally on your machine.",
       "getKey": "Get free API key",
       "placeholder": "Paste API key (gsk_...)",
       "activate": "Activate",

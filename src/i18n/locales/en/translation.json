@@ -20,7 +20,7 @@
   "onboarding": {
     "groq": {
       "title": "Best quality with a free Groq key (optional)",
-      "body": "With a free Groq API key, FlowCopy transcribes in the cloud (top accuracy, ~1s) and cleans up your dictation with AI: filler words removed, self-corrections applied. Sign-up takes 2 minutes, only an e-mail is needed. Without a key everything runs locally on your machine.",
+      "body": "With a free Groq API key, CC Speak transcribes in the cloud (top accuracy, ~1s) and cleans up your dictation with AI: filler words removed, self-corrections applied. Sign-up takes 2 minutes, only an e-mail is needed. Without a key everything runs locally on your machine.",
       "getKey": "Get free API key",
       "placeholder": "Paste API key (gsk_...)",
       "activate": "Activate",
@@ -110,7 +110,7 @@
     },
     "permissions": {
       "title": "Permissions Required",
-      "description": "FlowCopy needs a couple of permissions to work properly.",
+      "description": "CC Speak needs a couple of permissions to work properly.",
       "microphone": {
         "title": "Microphone Access",
         "description": "Required to hear your voice for transcription."
@@ -170,7 +170,7 @@
     "general": {
       "title": "General",
       "shortcut": {
-        "title": "FlowCopy Shortcuts",
+        "title": "CC Speak Shortcuts",
         "description": "Configure keyboard shortcuts to trigger speech-to-text recording",
         "loading": "Loading shortcuts...",
         "none": "No shortcuts configured",
@@ -227,7 +227,7 @@
       },
       "rescan": {
         "label": "Rescan",
-        "tooltip": "Rescan for models added to the models folder or Hugging Face cache outside FlowCopy"
+        "tooltip": "Rescan for models added to the models folder or Hugging Face cache outside CC Speak"
       },
       "noModelsMatch": "No models match this filter."
     },
@@ -291,11 +291,11 @@
       },
       "autostart": {
         "label": "Launch on Startup",
-        "description": "Automatically start FlowCopy when you log in to your computer."
+        "description": "Automatically start CC Speak when you log in to your computer."
       },
       "showTrayIcon": {
         "label": "Show Tray Icon",
-        "description": "Display the FlowCopy icon in the system tray."
+        "description": "Display the CC Speak icon in the system tray."
       },
       "overlay": {
         "style": {
@@ -530,7 +530,7 @@
       },
       "updateChecks": {
         "label": "Check for Updates",
-        "description": "Automatically check for new versions of FlowCopy"
+        "description": "Automatically check for new versions of CC Speak"
       },
       "whatsNewPreview": {
         "title": "Preview What's New",
@@ -605,15 +605,15 @@
       "title": "About",
       "version": {
         "title": "Version",
-        "description": "Current version of FlowCopy"
+        "description": "Current version of CC Speak"
       },
       "whatsNewUpdates": {
         "label": "Show What's New",
-        "description": "Show release notes after FlowCopy updates"
+        "description": "Show release notes after CC Speak updates"
       },
       "appDataDirectory": {
         "title": "App Data Directory",
-        "description": "Location where FlowCopy stores its data"
+        "description": "Location where CC Speak stores its data"
       },
       "sourceCode": {
         "title": "Source Code",
@@ -622,7 +622,7 @@
       },
       "supportDevelopment": {
         "title": "Support Development",
-        "description": "Help us continue building FlowCopy",
+        "description": "Help us continue building CC Speak",
         "button": "Donate"
       },
       "acknowledgments": {
@@ -630,7 +630,7 @@
         "ggml": {
           "title": "ggml",
           "description": "High-performance tensor library for on-device machine learning inference",
-          "details": "FlowCopy's local speech-to-text is built on transcribe.cpp and ggml. Thanks to the amazing work by Georgi Gerganov and contributors."
+          "details": "CC Speak's local speech-to-text is built on transcribe.cpp and ggml. Thanks to the amazing work by Georgi Gerganov and contributors."
         }
       }
     }
@@ -649,7 +649,7 @@
     "portableUpdateButton": "Open GitHub Releases"
   },
   "whatsNew": {
-    "title": "New in FlowCopy v{{version}}"
+    "title": "New in CC Speak v{{version}}"
   },
   "common": {
     "loading": "Loading...",
@@ -661,7 +661,7 @@
     "noOptionsFound": "No options found"
   },
   "accessibility": {
-    "permissionsDescription": "FlowCopy needs accessibility permissions to type transcribed text.",
+    "permissionsDescription": "CC Speak needs accessibility permissions to type transcribed text.",
     "openSettings": "Open System Settings"
   },
   "errors": {
@@ -684,7 +684,7 @@
   },
   "appLanguage": {
     "title": "Application Language",
-    "description": "Change the language of the FlowCopy interface"
+    "description": "Change the language of the CC Speak interface"
   },
   "overlay": {
     "transcribing": "Transcribing...",

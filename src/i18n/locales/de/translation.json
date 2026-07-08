@@ -20,7 +20,7 @@
   "onboarding": {
     "groq": {
       "title": "Beste Qualität mit kostenlosem Groq-Key (optional)",
-      "body": "Mit einem kostenlosen Groq-API-Key transkribiert FlowCopy in der Cloud (Top-Genauigkeit, ~1 s) und räumt dein Diktat per KI auf: Füllwörter raus, Selbstkorrekturen angewendet. Anmeldung dauert 2 Minuten, nur E-Mail nötig. Ohne Key läuft alles lokal auf deinem Rechner.",
+      "body": "Mit einem kostenlosen Groq-API-Key transkribiert CC Speak in der Cloud (Top-Genauigkeit, ~1 s) und räumt dein Diktat per KI auf: Füllwörter raus, Selbstkorrekturen angewendet. Anmeldung dauert 2 Minuten, nur E-Mail nötig. Ohne Key läuft alles lokal auf deinem Rechner.",
       "getKey": "Kostenlosen API-Key holen",
       "placeholder": "API-Key einfügen (gsk_...)",
       "activate": "Aktivieren",
@@ -110,7 +110,7 @@
     },
     "permissions": {
       "title": "Berechtigungen erforderlich",
-      "description": "FlowCopy benötigt einige Berechtigungen, um richtig zu funktionieren.",
+      "description": "CC Speak benötigt einige Berechtigungen, um richtig zu funktionieren.",
       "microphone": {
         "title": "Mikrofonzugriff",
         "description": "Erforderlich, um deine Stimme für die Transkription zu hören."
@@ -182,13 +182,13 @@
       "searchPlaceholder": "Modelle nach Namen suchen…",
       "rescan": {
         "label": "Neu scannen",
-        "tooltip": "Erneut nach Modellen scannen, die außerhalb von FlowCopy zum Modellordner oder Hugging-Face-Cache hinzugefügt wurden"
+        "tooltip": "Erneut nach Modellen scannen, die außerhalb von CC Speak zum Modellordner oder Hugging-Face-Cache hinzugefügt wurden"
       }
     },
     "general": {
       "title": "Allgemein",
       "shortcut": {
-        "title": "FlowCopy-Tastenkürzel",
+        "title": "CC Speak-Tastenkürzel",
         "description": "Tastenkürzel für die Sprachaufnahme konfigurieren",
         "loading": "Tastenkürzel werden geladen...",
         "none": "Keine Tastenkürzel konfiguriert",
@@ -291,11 +291,11 @@
       },
       "autostart": {
         "label": "Beim Start ausführen",
-        "description": "FlowCopy automatisch beim Anmelden starten."
+        "description": "CC Speak automatisch beim Anmelden starten."
       },
       "showTrayIcon": {
         "label": "Taskleistensymbol anzeigen",
-        "description": "Das FlowCopy-Symbol in der Taskleiste anzeigen."
+        "description": "Das CC Speak-Symbol in der Taskleiste anzeigen."
       },
       "overlay": {
         "style": {
@@ -530,7 +530,7 @@
       },
       "updateChecks": {
         "label": "Nach Updates suchen",
-        "description": "Automatisch nach neuen Versionen von FlowCopy suchen"
+        "description": "Automatisch nach neuen Versionen von CC Speak suchen"
       },
       "soundTheme": {
         "label": "Sound-Thema",
@@ -605,11 +605,11 @@
       "title": "Info",
       "version": {
         "title": "Version",
-        "description": "Aktuelle Version von FlowCopy"
+        "description": "Aktuelle Version von CC Speak"
       },
       "appDataDirectory": {
         "title": "App-Datenverzeichnis",
-        "description": "Speicherort der FlowCopy-Daten"
+        "description": "Speicherort der CC Speak-Daten"
       },
       "sourceCode": {
         "title": "Quellcode",
@@ -618,7 +618,7 @@
       },
       "supportDevelopment": {
         "title": "Entwicklung unterstützen",
-        "description": "Hilf uns, FlowCopy weiterzuentwickeln",
+        "description": "Hilf uns, CC Speak weiterzuentwickeln",
         "button": "Spenden"
       },
       "acknowledgments": {
@@ -626,12 +626,12 @@
         "ggml": {
           "title": "ggml",
           "description": "Hochleistungs-Inferenz des Whisper-Spracherkennungsmodells von OpenAI",
-          "details": "FlowCopy verwendet ggml für schnelle, lokale Sprach-zu-Text-Verarbeitung. Dank an Georgi Gerganov und die Mitwirkenden für ihre großartige Arbeit."
+          "details": "CC Speak verwendet ggml für schnelle, lokale Sprach-zu-Text-Verarbeitung. Dank an Georgi Gerganov und die Mitwirkenden für ihre großartige Arbeit."
         }
       },
       "whatsNewUpdates": {
         "label": "Neuerungen anzeigen",
-        "description": "Versionshinweise nach FlowCopy-Updates anzeigen"
+        "description": "Versionshinweise nach CC Speak-Updates anzeigen"
       }
     }
   },
@@ -658,7 +658,7 @@
     "noOptionsFound": "Keine Optionen gefunden"
   },
   "accessibility": {
-    "permissionsDescription": "FlowCopy benötigt Bedienungshilfen-Berechtigungen, um transkribierten Text einzugeben.",
+    "permissionsDescription": "CC Speak benötigt Bedienungshilfen-Berechtigungen, um transkribierten Text einzugeben.",
     "openSettings": "Systemeinstellungen öffnen"
   },
   "errors": {
@@ -681,13 +681,13 @@
   },
   "appLanguage": {
     "title": "Anwendungssprache",
-    "description": "Sprache der FlowCopy-Oberfläche ändern"
+    "description": "Sprache der CC Speak-Oberfläche ändern"
   },
   "overlay": {
     "transcribing": "Transkribiere...",
     "processing": "Verarbeite..."
   },
   "whatsNew": {
-    "title": "Neu in FlowCopy v{{version}}"
+    "title": "Neu in CC Speak v{{version}}"
   }
 }
