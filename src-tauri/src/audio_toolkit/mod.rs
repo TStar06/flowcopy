@@ -1,6 +1,7 @@
 pub mod audio;
 pub mod constants;
 pub mod formatting;
+pub mod layout;
 pub mod replacements;
 pub mod text;
 pub mod utils;
@@ -11,6 +12,7 @@ pub use audio::{
     read_wav_samples, save_wav_file, verify_wav_file, AudioRecorder, CpalDeviceInfo, VadPolicy,
 };
 pub use formatting::apply_smart_formatting;
+pub use layout::apply_email_layout;
 pub use replacements::{apply_replacement_rules, ReplacementRule};
 pub use text::{apply_custom_words, filter_transcription_output};
 pub use utils::get_cpal_host;

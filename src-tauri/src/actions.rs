@@ -457,6 +457,17 @@ pub(crate) async fn process_transcription_output(
         post_processed_text = Some(final_text.clone());
     }
 
+    // Deterministic e-mail layout (greeting / sign-off on their own lines).
+    // Runs after the LLM so the guarantee also holds when the LLM is
+    // disabled, offline or failing; idempotent on already-formatted output.
+    if settings.smart_format_enabled {
+        let laid_out = crate::audio_toolkit::apply_email_layout(&final_text);
+        if laid_out != final_text {
+            final_text = laid_out;
+            post_processed_text = Some(final_text.clone());
+        }
+    }
+
     ProcessedTranscription {
         final_text,
         post_processed_text,
@@ -724,7 +735,15 @@ impl ShortcutAction for TranscribeAction {
                                 )
                                 .await
                                 {
-                                    Ok(text) => Ok(text),
+                                    // Cloud text must get the same Tier-0
+                                    // pipeline (custom words, filler filter,
+                                    // dictionary, smart formatting, snippets)
+                                    // the local engines apply internally.
+                                    Ok(text) => Ok(
+                                        crate::managers::transcription::post_process_transcription_text(
+                                            text, &settings, false,
+                                        ),
+                                    ),
                                     Err(err) => {
                                         warn!(
                                             "Cloud transcription failed ({}), falling back to local model",
