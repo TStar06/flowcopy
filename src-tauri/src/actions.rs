@@ -74,6 +74,30 @@ fn is_blank_transcription(transcription: &str) -> bool {
     transcription.trim().is_empty()
 }
 
+/// Applies the verbatim guard when the active prompt is a cleanup-only
+/// prompt. Returns `None` when the LLM answer is rejected, so the caller
+/// keeps the rule-based (Tier 0) text.
+fn guard_verbatim_output(
+    input: &str,
+    output: String,
+    prompt_id: &str,
+    provider_id: &str,
+) -> Option<String> {
+    if !crate::verbatim_guard::is_verbatim_prompt(prompt_id) {
+        return Some(output);
+    }
+    match crate::verbatim_guard::check_verbatim(input, &output) {
+        Ok(()) => Some(output),
+        Err(reason) => {
+            warn!(
+                "Verbatim guard rejected LLM output from provider '{}' ({}); falling back to rule-based text",
+                provider_id, reason
+            );
+            None
+        }
+    }
+}
+
 async fn post_process_transcription(
     settings: &AppSettings,
     transcription: &str,
@@ -164,6 +188,15 @@ async fn post_process_transcription(
         _ => (None, None),
     };
 
+    // temperature 0 = deterministic cleanup; without it the provider default
+    // (~1.0) makes the model paraphrase freely. OpenAI reasoning models
+    // (o-series, gpt-5) reject the parameter with a 400 -> omit it there.
+    let temperature = if provider.id == "openai" {
+        None
+    } else {
+        Some(0.0)
+    };
+
     if provider.supports_structured_output {
         debug!("Using structured outputs for provider '{}'", provider.id);
 
@@ -197,7 +230,12 @@ async fn post_process_transcription(
                                 "Apple Intelligence post-processing succeeded. Output length: {} chars",
                                 result.len()
                             );
-                            Some(result)
+                            guard_verbatim_output(
+                                transcription,
+                                result,
+                                &selected_prompt_id,
+                                &provider.id,
+                            )
                         }
                     }
                     Err(err) => {
@@ -234,6 +272,7 @@ async fn post_process_transcription(
             user_content,
             Some(system_prompt),
             Some(json_schema),
+            temperature,
             reasoning_effort.clone(),
             reasoning.clone(),
         )
@@ -252,10 +291,20 @@ async fn post_process_transcription(
                                 provider.id,
                                 result.len()
                             );
-                            return Some(result);
+                            return guard_verbatim_output(
+                                transcription,
+                                result,
+                                &selected_prompt_id,
+                                &provider.id,
+                            );
                         } else {
                             error!("Structured output response missing 'transcription' field");
-                            return Some(strip_invisible_chars(&content));
+                            return guard_verbatim_output(
+                                transcription,
+                                strip_invisible_chars(&content),
+                                &selected_prompt_id,
+                                &provider.id,
+                            );
                         }
                     }
                     Err(e) => {
@@ -263,7 +312,12 @@ async fn post_process_transcription(
                             "Failed to parse structured output JSON: {}. Returning raw content.",
                             e
                         );
-                        return Some(strip_invisible_chars(&content));
+                        return guard_verbatim_output(
+                            transcription,
+                            strip_invisible_chars(&content),
+                            &selected_prompt_id,
+                            &provider.id,
+                        );
                     }
                 }
             }
@@ -290,6 +344,7 @@ async fn post_process_transcription(
         api_key,
         &model,
         processed_prompt,
+        temperature,
         reasoning_effort,
         reasoning,
     )
@@ -302,7 +357,7 @@ async fn post_process_transcription(
                 provider.id,
                 content.len()
             );
-            Some(content)
+            guard_verbatim_output(transcription, content, &selected_prompt_id, &provider.id)
         }
         Ok(None) => {
             error!("LLM API response has no content");
