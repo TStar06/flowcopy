@@ -371,6 +371,20 @@ mod tests {
     }
 
     #[test]
+    fn self_correction_with_marker_passes() {
+        assert!(check_verbatim(
+            "ich rufe den elektriker an nee ich meine den klempner",
+            "Ich rufe den Klempner an."
+        )
+        .is_ok());
+    }
+
+    #[test]
+    fn restated_value_passes() {
+        assert!(check_verbatim("das kostet zehn nein zwanzig euro", "Das kostet 20 Euro.").is_ok());
+    }
+
+    #[test]
     fn umlaut_variant_passes() {
         assert!(check_verbatim("viele grüße", "Viele Gruesse").is_ok());
     }
