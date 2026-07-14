@@ -44,6 +44,19 @@ pub fn handle_shortcut_event(
         return;
     }
 
+    // Finish binding (hands-free mode): stop the active recording and
+    // transcribe. Only registered while a hands-free recording is running.
+    if binding_id == "finish" {
+        if is_pressed {
+            if let Some(coordinator) = app.try_state::<TranscriptionCoordinator>() {
+                coordinator.notify_finish();
+            } else {
+                warn!("TranscriptionCoordinator is not initialized");
+            }
+        }
+        return;
+    }
+
     let Some(action) = ACTION_MAP.get(binding_id) else {
         warn!(
             "No action defined in ACTION_MAP for shortcut ID '{}'. Shortcut: '{}', Pressed: {}",

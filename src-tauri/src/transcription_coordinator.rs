@@ -20,6 +20,8 @@ enum Command {
     Cancel {
         recording_was_active: bool,
     },
+    /// Finish key (e.g. Enter) pressed during a hands-free recording.
+    Finish,
     ProcessingFinished,
 }
 
@@ -71,7 +73,13 @@ impl TranscriptionCoordinator {
 
                             if push_to_talk {
                                 if is_pressed && matches!(stage, Stage::Idle) {
-                                    start(&app, &mut stage, &binding_id, &hotkey_string);
+                                    start(
+                                        &app,
+                                        &mut stage,
+                                        &binding_id,
+                                        &hotkey_string,
+                                        push_to_talk,
+                                    );
                                 } else if !is_pressed
                                     && matches!(&stage, Stage::Recording(id) if id == &binding_id)
                                 {
@@ -80,7 +88,13 @@ impl TranscriptionCoordinator {
                             } else if is_pressed {
                                 match &stage {
                                     Stage::Idle => {
-                                        start(&app, &mut stage, &binding_id, &hotkey_string);
+                                        start(
+                                            &app,
+                                            &mut stage,
+                                            &binding_id,
+                                            &hotkey_string,
+                                            push_to_talk,
+                                        );
                                     }
                                     Stage::Recording(id) if id == &binding_id => {
                                         stop(&app, &mut stage, &binding_id, &hotkey_string);
@@ -99,6 +113,14 @@ impl TranscriptionCoordinator {
                                 && (recording_was_active || matches!(stage, Stage::Recording(_)))
                             {
                                 stage = Stage::Idle;
+                            }
+                        }
+                        Command::Finish => {
+                            if let Stage::Recording(id) = &stage {
+                                let binding_id = id.clone();
+                                stop(&app, &mut stage, &binding_id, "finish");
+                            } else {
+                                debug!("Ignoring finish: no active recording");
                             }
                         }
                         Command::ProcessingFinished => {
@@ -139,6 +161,13 @@ impl TranscriptionCoordinator {
         }
     }
 
+    /// Finish key pressed during a hands-free recording: stop and transcribe.
+    pub fn notify_finish(&self) {
+        if self.tx.send(Command::Finish).is_err() {
+            warn!("Transcription coordinator channel closed");
+        }
+    }
+
     pub fn notify_cancel(&self, recording_was_active: bool) {
         if self
             .tx
@@ -158,7 +187,13 @@ impl TranscriptionCoordinator {
     }
 }
 
-fn start(app: &AppHandle, stage: &mut Stage, binding_id: &str, hotkey_string: &str) {
+fn start(
+    app: &AppHandle,
+    stage: &mut Stage,
+    binding_id: &str,
+    hotkey_string: &str,
+    push_to_talk: bool,
+) {
     let Some(action) = ACTION_MAP.get(binding_id) else {
         warn!("No action in ACTION_MAP for '{binding_id}'");
         return;
@@ -169,6 +204,13 @@ fn start(app: &AppHandle, stage: &mut Stage, binding_id: &str, hotkey_string: &s
         .is_some_and(|a| a.is_recording())
     {
         *stage = Stage::Recording(binding_id.to_string());
+        // Hands-free recordings can be finished with the finish key (Enter).
+        // The binding is only registered while such a recording is active so
+        // the key stays untouched otherwise; unregistration happens centrally
+        // in TranscribeAction::stop and the cancel path.
+        if !push_to_talk {
+            crate::shortcut::register_finish_shortcut(app);
+        }
     } else {
         debug!("Start for '{binding_id}' did not begin recording; staying idle");
     }

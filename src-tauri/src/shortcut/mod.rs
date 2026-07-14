@@ -74,6 +74,24 @@ pub fn unregister_cancel_shortcut(app: &AppHandle) {
     }
 }
 
+/// Register the finish shortcut (called when a hands-free recording starts)
+pub fn register_finish_shortcut(app: &AppHandle) {
+    let settings = get_settings(app);
+    match settings.keyboard_implementation {
+        KeyboardImplementation::Tauri => tauri_impl::register_finish_shortcut(app),
+        KeyboardImplementation::HandyKeys => handy_keys::register_finish_shortcut(app),
+    }
+}
+
+/// Unregister the finish shortcut (called when recording stops or is cancelled)
+pub fn unregister_finish_shortcut(app: &AppHandle) {
+    let settings = get_settings(app);
+    match settings.keyboard_implementation {
+        KeyboardImplementation::Tauri => tauri_impl::unregister_finish_shortcut(app),
+        KeyboardImplementation::HandyKeys => handy_keys::unregister_finish_shortcut(app),
+    }
+}
+
 /// Register a shortcut using the appropriate implementation
 pub fn register_shortcut(app: &AppHandle, binding: ShortcutBinding) -> Result<(), String> {
     let settings = get_settings(app);

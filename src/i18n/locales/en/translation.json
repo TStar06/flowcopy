@@ -185,6 +185,10 @@
             "name": "Cancel Shortcut",
             "description": "The keyboard shortcut to cancel the current recording."
           },
+          "finish": {
+            "name": "Finish Shortcut",
+            "description": "The keyboard shortcut to finish the recording and type the text (hands-free mode)."
+          },
           "transcribe_with_post_process": {
             "name": "Post-Processing Hotkey",
             "description": "Optional: A dedicated hotkey that always applies AI post-processing to your transcription."
@@ -380,7 +384,7 @@
       },
       "textReplacements": {
         "title": "Text replacements",
-        "description": "Automatically replace a dictated word or phrase with another text (e.g. \"vs code\" \u2192 \"VS Code\").",
+        "description": "Automatically replace a dictated word or phrase with another text (e.g. \"vs code\" → \"VS Code\").",
         "patternPlaceholder": "Spoken text",
         "replacementPlaceholder": "Replace with",
         "add": "Add",

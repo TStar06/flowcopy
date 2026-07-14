@@ -196,3 +196,45 @@ pub fn unregister_cancel_shortcut(app: &AppHandle) {
         });
     }
 }
+
+/// Register the finish shortcut (called when a hands-free recording starts)
+pub fn register_finish_shortcut(app: &AppHandle) {
+    // Disabled on Linux due to instability with dynamic shortcut registration
+    #[cfg(target_os = "linux")]
+    {
+        let _ = app;
+        return;
+    }
+
+    #[cfg(not(target_os = "linux"))]
+    {
+        let app_clone = app.clone();
+        tauri::async_runtime::spawn(async move {
+            if let Some(finish_binding) = get_settings(&app_clone).bindings.get("finish").cloned() {
+                if let Err(e) = register_shortcut(&app_clone, finish_binding) {
+                    error!("Failed to register finish shortcut: {}", e);
+                }
+            }
+        });
+    }
+}
+
+/// Unregister the finish shortcut (called when recording stops or is cancelled)
+pub fn unregister_finish_shortcut(app: &AppHandle) {
+    #[cfg(target_os = "linux")]
+    {
+        let _ = app;
+        return;
+    }
+
+    #[cfg(not(target_os = "linux"))]
+    {
+        let app_clone = app.clone();
+        tauri::async_runtime::spawn(async move {
+            if let Some(finish_binding) = get_settings(&app_clone).bindings.get("finish").cloned() {
+                // We ignore errors here as it might already be unregistered
+                let _ = unregister_shortcut(&app_clone, finish_binding);
+            }
+        });
+    }
+}

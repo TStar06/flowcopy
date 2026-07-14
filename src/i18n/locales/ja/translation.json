@@ -203,6 +203,10 @@
             "name": "キャンセルのショートカット",
             "description": "現在の録音をキャンセルするためのキーボードショートカット。"
           },
+          "finish": {
+            "name": "Finish Shortcut",
+            "description": "The keyboard shortcut to finish the recording and type the text (hands-free mode)."
+          },
           "transcribe_with_post_process": {
             "name": "後処理のショートカット",
             "description": "文字起こしに常に AI 後処理を適用するキーボードショートカット。 (任意)"
@@ -365,7 +369,7 @@
       },
       "spokenCommands": {
         "label": "Spoken commands",
-        "description": "Converts spoken commands like \u201cnew line\u201d or \u201cperiod\u201d into formatting."
+        "description": "Converts spoken commands like “new line” or “period” into formatting."
       },
       "appProfiles": {
         "title": "Per-app profiles",
@@ -380,7 +384,7 @@
       },
       "textReplacements": {
         "title": "Text replacements",
-        "description": "Automatically replace a dictated word or phrase with another text (e.g. \"vs code\" \u2192 \"VS Code\").",
+        "description": "Automatically replace a dictated word or phrase with another text (e.g. \"vs code\" → \"VS Code\").",
         "patternPlaceholder": "Spoken text",
         "replacementPlaceholder": "Replace with",
         "add": "Add",

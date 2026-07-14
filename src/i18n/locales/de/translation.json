@@ -203,6 +203,10 @@
             "name": "Abbrechen-Tastenkürzel",
             "description": "Das Tastenkürzel zum Abbrechen der aktuellen Aufnahme."
           },
+          "finish": {
+            "name": "Abschließen-Shortcut",
+            "description": "Die Taste, die die Freisprech-Aufnahme beendet und den Text einfügt."
+          },
           "transcribe_with_post_process": {
             "name": "Nachbearbeitungs-Tastenkürzel",
             "description": "Optional: Ein dediziertes Tastenkürzel, das immer die KI-Nachbearbeitung auf deine Transkription anwendet."

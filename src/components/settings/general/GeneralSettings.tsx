@@ -23,9 +23,12 @@ export const GeneralSettings: React.FC = () => {
       <SettingsGroup title={t("settings.general.title")}>
         <ShortcutInput shortcutId="transcribe" grouped={true} />
         <PushToTalk descriptionMode="tooltip" grouped={true} />
-        {/* Cancel shortcut is hidden with push-to-talk (release key cancels) and on Linux (dynamic shortcut instability) */}
+        {/* Cancel/finish shortcuts are hidden with push-to-talk (release key stops) and on Linux (dynamic shortcut instability) */}
         {!isLinux && !pushToTalk && (
-          <ShortcutInput shortcutId="cancel" grouped={true} />
+          <>
+            <ShortcutInput shortcutId="finish" grouped={true} />
+            <ShortcutInput shortcutId="cancel" grouped={true} />
+          </>
         )}
       </SettingsGroup>
       <ModelSettingsCard />

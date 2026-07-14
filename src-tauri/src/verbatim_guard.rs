@@ -371,6 +371,15 @@ mod tests {
     }
 
     #[test]
+    fn bullet_markers_removed_passes() {
+        assert!(check_verbatim(
+            "wir brauchen drei sachen erster stichpunkt die angebote prüfen zweiter stichpunkt den termin bestätigen",
+            "Wir brauchen drei Sachen:\n- die Angebote prüfen\n- den Termin bestätigen"
+        )
+        .is_ok());
+    }
+
+    #[test]
     fn self_correction_with_marker_passes() {
         assert!(check_verbatim(
             "ich rufe den elektriker an nee ich meine den klempner",

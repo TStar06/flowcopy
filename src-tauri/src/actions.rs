@@ -681,8 +681,9 @@ impl ShortcutAction for TranscribeAction {
     }
 
     fn stop(&self, app: &AppHandle, binding_id: &str, _shortcut_str: &str) {
-        // Unregister the cancel shortcut when transcription stops
+        // Unregister the recording-scoped shortcuts when transcription stops
         shortcut::unregister_cancel_shortcut(app);
+        shortcut::unregister_finish_shortcut(app);
 
         let stop_time = Instant::now();
         debug!("TranscribeAction::stop called for binding: {}", binding_id);
