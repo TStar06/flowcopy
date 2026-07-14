@@ -1106,6 +1106,17 @@ pub fn get_settings(app: &AppHandle) -> AppSettings {
     settings
 }
 
+/// Normalizes a key name for comparison ("Return" and "enter" are the same
+/// physical key in both keyboard implementations).
+fn normalize_key_name(raw: &str) -> String {
+    let key = raw.trim().to_ascii_lowercase();
+    if key == "return" {
+        "enter".to_string()
+    } else {
+        key
+    }
+}
+
 fn apply_settings_migrations(
     settings: &mut AppSettings,
     settings_value: &serde_json::Value,
@@ -1145,6 +1156,31 @@ fn apply_settings_migrations(
         }
         settings.settings_schema_version = CURRENT_SETTINGS_SCHEMA_VERSION;
         updated = true;
+    }
+
+    // Cancel must never share a key with finish (default: enter). Before the
+    // finish binding existed, binding cancel to Enter was a natural workaround
+    // attempt for ending a hands-free recording — but it silently DISCARDED
+    // the dictation, and it would now win the registration race against
+    // finish. Reset a colliding cancel binding to its default (escape).
+    let finish_key = settings
+        .bindings
+        .get("finish")
+        .map(|b| normalize_key_name(&b.current_binding))
+        .unwrap_or_else(|| "enter".to_string());
+    if let Some(cancel) = settings.bindings.get_mut("cancel") {
+        if !finish_key.is_empty()
+            && normalize_key_name(&cancel.current_binding) == finish_key
+            && normalize_key_name(&cancel.default_binding) != finish_key
+        {
+            log::info!(
+                "Cancel binding '{}' collides with the finish key; resetting cancel to '{}'",
+                cancel.current_binding,
+                cancel.default_binding
+            );
+            cancel.current_binding = cancel.default_binding.clone();
+            updated = true;
+        }
     }
 
     // One-time overlay migration (only while the new key is absent): the retired
@@ -1251,6 +1287,48 @@ mod tests {
             serde_json::from_value(raw.get("overlay_position").unwrap().clone())
                 .expect("legacy \"none\" should deserialize, not error");
         assert_eq!(position, OverlayPosition::Bottom);
+    }
+
+    #[test]
+    fn cancel_binding_colliding_with_finish_is_reset_to_default() {
+        let mut settings = get_default_settings();
+        settings.bindings.get_mut("cancel").unwrap().current_binding = "enter".to_string();
+
+        let raw = serde_json::json!({
+            "selected_model": "",
+            "onboarding_completed": true,
+            "whats_new_last_seen_version": "0.5.0",
+            "settings_schema_version": 1,
+            "overlay_style": "live"
+        });
+
+        assert!(apply_settings_migrations(&mut settings, &raw));
+        assert_eq!(
+            settings.bindings.get("cancel").unwrap().current_binding,
+            "escape"
+        );
+        // Idempotent: a second run must not report further changes.
+        assert!(!apply_settings_migrations(&mut settings, &raw));
+    }
+
+    #[test]
+    fn cancel_binding_return_alias_also_collides() {
+        let mut settings = get_default_settings();
+        settings.bindings.get_mut("cancel").unwrap().current_binding = "Return".to_string();
+
+        let raw = serde_json::json!({
+            "selected_model": "",
+            "onboarding_completed": true,
+            "whats_new_last_seen_version": "0.5.0",
+            "settings_schema_version": 1,
+            "overlay_style": "live"
+        });
+
+        assert!(apply_settings_migrations(&mut settings, &raw));
+        assert_eq!(
+            settings.bindings.get("cancel").unwrap().current_binding,
+            "escape"
+        );
     }
 
     #[test]
