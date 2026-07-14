@@ -437,10 +437,6 @@ pub fn init_shortcuts(app: &AppHandle) -> Result<(), String> {
         if id == "transcribe_with_post_process" && !user_settings.post_process_enabled {
             continue;
         }
-        // Skip translate shortcut when the feature is disabled
-        if id == "transcribe_translate" && !user_settings.translate_enabled {
-            continue;
-        }
 
         let binding = user_settings
             .bindings
@@ -453,6 +449,21 @@ pub fn init_shortcuts(app: &AppHandle) -> Result<(), String> {
                 "Failed to register handy-keys shortcut {} during init: {}",
                 id, e
             );
+        }
+    }
+
+    // Per-language translate bindings live only in the user settings (one per
+    // configured target language) and are gated on the feature toggle.
+    if user_settings.translate_enabled {
+        for (id, binding) in &user_settings.bindings {
+            if settings::translate_binding_language(id).is_some() {
+                if let Err(e) = state.register(binding) {
+                    error!(
+                        "Failed to register handy-keys shortcut {} during init: {}",
+                        id, e
+                    );
+                }
+            }
         }
     }
 

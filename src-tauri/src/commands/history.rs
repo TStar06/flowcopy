@@ -122,7 +122,7 @@ pub async fn retry_history_entry_transcription(
         &app,
         &transcription,
         entry.post_process_requested,
-        false,
+        None,
         entry.app_name.as_deref(),
     )
     .await;

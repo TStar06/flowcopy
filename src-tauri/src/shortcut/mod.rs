@@ -202,15 +202,21 @@ pub fn change_binding(
     let mut updated_binding = binding_to_modify;
     updated_binding.current_binding = binding;
 
-    // Register the new binding
-    if let Err(e) = register_shortcut(&app, updated_binding.clone()) {
-        let error_msg = format!("Failed to register shortcut: {}", e);
-        error!("change_binding error: {}", error_msg);
-        return Ok(BindingResponse {
-            success: false,
-            binding: None,
-            error: Some(error_msg),
-        });
+    // Register the new binding. Translate bindings stay unregistered while
+    // the translation feature is disabled — the hotkey must not go live just
+    // because it was edited.
+    let register_now =
+        settings::translate_binding_language(&id).is_none() || settings.translate_enabled;
+    if register_now {
+        if let Err(e) = register_shortcut(&app, updated_binding.clone()) {
+            let error_msg = format!("Failed to register shortcut: {}", e);
+            error!("change_binding error: {}", error_msg);
+            return Ok(BindingResponse {
+                success: false,
+                binding: None,
+                error: Some(error_msg),
+            });
+        }
     }
 
     // Update the binding in the settings
@@ -252,6 +258,12 @@ pub fn suspend_binding(app: AppHandle, id: String) -> Result<(), String> {
 #[tauri::command]
 #[specta::specta]
 pub fn resume_binding(app: AppHandle, id: String) -> Result<(), String> {
+    // Translate bindings stay unregistered while the feature is disabled.
+    if settings::translate_binding_language(&id).is_some()
+        && !settings::get_settings(&app).translate_enabled
+    {
+        return Ok(());
+    }
     if let Some(b) = settings::get_bindings(&app).get(&id).cloned() {
         if let Err(e) = register_shortcut(&app, b) {
             error!("resume_binding error for id '{}': {}", id, e);
@@ -422,11 +434,6 @@ fn register_all_shortcuts_for_implementation(
         if id == "transcribe_with_post_process" && !current_settings.post_process_enabled {
             continue;
         }
-        // Skip translate shortcut when the feature is disabled
-        if id == "transcribe_translate" && !current_settings.translate_enabled {
-            continue;
-        }
-
         let mut binding = current_settings
             .bindings
             .get(id)
@@ -461,6 +468,30 @@ fn register_all_shortcuts_for_implementation(
                 "Failed to register shortcut '{}' for {:?}: {}",
                 id, implementation, e
             );
+        }
+    }
+
+    // Per-language translate bindings live only in the user settings and are
+    // gated on the feature toggle.
+    if current_settings.translate_enabled {
+        for (id, binding) in &current_settings.bindings {
+            if settings::translate_binding_language(id).is_none() {
+                continue;
+            }
+            let result = match implementation {
+                KeyboardImplementation::Tauri => {
+                    tauri_impl::register_shortcut(app, binding.clone())
+                }
+                KeyboardImplementation::HandyKeys => {
+                    handy_keys::register_shortcut(app, binding.clone())
+                }
+            };
+            if let Err(e) = result {
+                error!(
+                    "Failed to register shortcut '{}' for {:?}: {}",
+                    id, implementation, e
+                );
+            }
         }
     }
 
@@ -989,27 +1020,65 @@ pub fn change_translate_enabled_setting(app: AppHandle, enabled: bool) -> Result
     settings.translate_enabled = enabled;
     settings::write_settings(&app, settings.clone());
 
-    // Register or unregister the translate shortcut
-    if let Some(binding) = settings.bindings.get("transcribe_translate").cloned() {
+    // Register or unregister every per-language translate shortcut
+    for (id, binding) in &settings.bindings {
+        if settings::translate_binding_language(id).is_none() {
+            continue;
+        }
         if enabled {
-            let _ = register_shortcut(&app, binding);
+            let _ = register_shortcut(&app, binding.clone());
         } else {
-            let _ = unregister_shortcut(&app, binding);
+            let _ = unregister_shortcut(&app, binding.clone());
         }
     }
 
     Ok(())
 }
 
+/// Adds a translate target language as a new per-language binding (default
+/// hotkey ctrl+alt+space, adjustable in the UI) and returns the new binding.
 #[tauri::command]
 #[specta::specta]
-pub fn change_translate_target_language_setting(
-    app: AppHandle,
-    language: String,
-) -> Result<(), String> {
+pub fn add_translate_target(app: AppHandle, language: String) -> Result<ShortcutBinding, String> {
+    let language = language.trim().to_lowercase();
+    if language.is_empty()
+        || language.len() > 8
+        || !language.chars().all(|c| c.is_ascii_alphabetic())
+    {
+        return Err(format!("Invalid language code '{}'", language));
+    }
+
     let mut settings = settings::get_settings(&app);
-    settings.translate_target_language = language;
+    let binding = settings::make_translate_binding(&language, "ctrl+alt+space");
+    if settings.bindings.contains_key(&binding.id) {
+        return Err(format!("Translate target '{}' already exists", language));
+    }
+    settings
+        .bindings
+        .insert(binding.id.clone(), binding.clone());
+    settings::write_settings(&app, settings.clone());
+
+    if settings.translate_enabled {
+        // Best effort: the default key may collide with another translate
+        // binding; the user resolves that by assigning a different hotkey.
+        let _ = register_shortcut(&app, binding.clone());
+    }
+    Ok(binding)
+}
+
+/// Removes a per-language translate binding.
+#[tauri::command]
+#[specta::specta]
+pub fn remove_translate_target(app: AppHandle, id: String) -> Result<(), String> {
+    if settings::translate_binding_language(&id).is_none() {
+        return Err(format!("'{}' is not a translate binding", id));
+    }
+    let mut settings = settings::get_settings(&app);
+    let Some(binding) = settings.bindings.remove(&id) else {
+        return Ok(());
+    };
     settings::write_settings(&app, settings);
+    let _ = unregister_shortcut(&app, binding);
     Ok(())
 }
 

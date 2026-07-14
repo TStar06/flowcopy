@@ -211,10 +211,6 @@
           "transcribe_with_post_process": {
             "name": "Skrót postprocessingu",
             "description": "Opcjonalnie: Dedykowany skrót klawiszowy, który zawsze stosuje postprocessing AI do transkrypcji."
-          },
-          "transcribe_translate": {
-            "name": "Translate Shortcut",
-            "description": "The keyboard shortcut to record speech and type the translation."
           }
         },
         "errors": {
@@ -646,14 +642,16 @@
     "translation": {
       "title": "Translation",
       "enable": {
-        "label": "Enable translation hotkey",
-        "description": "Adds a dedicated hotkey that records your speech and types the translation instead of the original text."
+        "label": "Enable translation hotkeys",
+        "description": "Adds dedicated hotkeys that record your speech and type the translation instead of the original text."
       },
-      "targetLanguage": {
-        "label": "Target language",
-        "description": "Dictations recorded with the translation hotkey are translated into this language."
+      "addLanguage": {
+        "label": "Add language",
+        "description": "Creates a new translation hotkey for this target language. Assign each language its own key combination.",
+        "button": "Add"
       },
-      "hint": "Translation uses the AI post-processing service (Groq API key required, see Post-Processing). Speak in any language — the result comes out in the target language. In hands-free mode, press Enter to finish, Escape to cancel."
+      "remove": "Remove",
+      "hint": "Translation uses the AI post-processing service (Groq API key required, see Post-Processing). Speak in any language — the result comes out in the target language of the hotkey you pressed. In hands-free mode, press Enter to finish, Escape to cancel."
     }
   },
   "footer": {

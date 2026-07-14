@@ -211,10 +211,6 @@
           "transcribe_with_post_process": {
             "name": "Nachbearbeitungs-Tastenkürzel",
             "description": "Optional: Ein dediziertes Tastenkürzel, das immer die KI-Nachbearbeitung auf deine Transkription anwendet."
-          },
-          "transcribe_translate": {
-            "name": "Übersetzen-Shortcut",
-            "description": "Die Taste, die Sprache aufnimmt und die Übersetzung eintippt."
           }
         },
         "errors": {
@@ -646,14 +642,16 @@
     "translation": {
       "title": "Übersetzung",
       "enable": {
-        "label": "Übersetzungs-Hotkey aktivieren",
-        "description": "Eigener Hotkey, der dein Diktat aufnimmt und statt des Originals die Übersetzung eintippt."
+        "label": "Übersetzungs-Hotkeys aktivieren",
+        "description": "Eigene Hotkeys, die dein Diktat aufnehmen und statt des Originals die Übersetzung eintippen."
       },
-      "targetLanguage": {
-        "label": "Zielsprache",
-        "description": "Diktate über den Übersetzungs-Hotkey werden in diese Sprache übersetzt."
+      "addLanguage": {
+        "label": "Sprache hinzufügen",
+        "description": "Legt einen neuen Übersetzungs-Hotkey für diese Zielsprache an. Gib jeder Sprache ihre eigene Tastenkombination.",
+        "button": "Hinzufügen"
       },
-      "hint": "Die Übersetzung läuft über die KI-Nachbearbeitung (Groq-API-Key nötig, siehe Nachbearbeitung). Sprich in beliebiger Sprache — der Text kommt in der Zielsprache heraus. Im Freisprech-Modus mit Enter abschließen, Escape bricht ab."
+      "remove": "Entfernen",
+      "hint": "Die Übersetzung läuft über die KI-Nachbearbeitung (Groq-API-Key nötig, siehe Nachbearbeitung). Sprich in beliebiger Sprache — der Text kommt in der Zielsprache des gedrückten Hotkeys heraus. Im Freisprech-Modus mit Enter abschließen, Escape bricht ab."
     }
   },
   "footer": {

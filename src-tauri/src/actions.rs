@@ -7,7 +7,10 @@ use crate::managers::history::HistoryManager;
 use crate::managers::model::ModelManager;
 use crate::managers::transcription::StreamWorkKind;
 use crate::managers::transcription::TranscriptionManager;
-use crate::settings::{get_settings, AppSettings, OverlayStyle, APPLE_INTELLIGENCE_PROVIDER_ID};
+use crate::settings::{
+    get_settings, translate_binding_language, translation_language_name, AppSettings, OverlayStyle,
+    APPLE_INTELLIGENCE_PROVIDER_ID,
+};
 use crate::shortcut;
 use crate::tray::{change_tray_icon, TrayIconState};
 use crate::utils::{
@@ -49,9 +52,6 @@ pub trait ShortcutAction: Send + Sync {
 // Transcribe Action
 struct TranscribeAction {
     post_process: bool,
-    /// Translate the dictation into `translate_target_language` instead of
-    /// running the cleanup prompt (dedicated translate hotkey).
-    translate: bool,
 }
 
 /// Field name for structured output JSON schema
@@ -377,45 +377,15 @@ async fn post_process_transcription(
     }
 }
 
-/// English names for the translation target languages (the Parakeet V3
-/// European set). Unknown codes fall through as the raw code — LLMs
-/// understand ISO 639-1 codes well enough.
-fn translation_language_name(code: &str) -> &str {
-    match code {
-        "bg" => "Bulgarian",
-        "hr" => "Croatian",
-        "cs" => "Czech",
-        "da" => "Danish",
-        "nl" => "Dutch",
-        "en" => "English",
-        "et" => "Estonian",
-        "fi" => "Finnish",
-        "fr" => "French",
-        "de" => "German",
-        "el" => "Greek",
-        "hu" => "Hungarian",
-        "it" => "Italian",
-        "lv" => "Latvian",
-        "lt" => "Lithuanian",
-        "mt" => "Maltese",
-        "pl" => "Polish",
-        "pt" => "Portuguese",
-        "ro" => "Romanian",
-        "ru" => "Russian",
-        "sk" => "Slovak",
-        "sl" => "Slovenian",
-        "es" => "Spanish",
-        "sv" => "Swedish",
-        "uk" => "Ukrainian",
-        other => other,
-    }
-}
-
-/// Translates a dictation into the configured target language via the
+/// Translates a dictation into the given target language via the
 /// post-processing LLM. Returns `None` (caller keeps the untranslated text)
 /// when no provider/key is configured, the call fails, or the answer is
 /// implausible (empty or a runaway continuation).
-async fn translate_transcription(settings: &AppSettings, transcription: &str) -> Option<String> {
+async fn translate_transcription(
+    settings: &AppSettings,
+    transcription: &str,
+    target_language: &str,
+) -> Option<String> {
     if is_blank_transcription(transcription) {
         return None;
     }
@@ -449,7 +419,7 @@ async fn translate_transcription(settings: &AppSettings, transcription: &str) ->
         .cloned()
         .unwrap_or_default();
 
-    let language = translation_language_name(&settings.translate_target_language);
+    let language = translation_language_name(target_language);
     debug!(
         "Translating dictation into {} via provider '{}'",
         language, provider.id
@@ -594,7 +564,7 @@ pub(crate) async fn process_transcription_output(
     app: &AppHandle,
     transcription: &str,
     post_process: bool,
-    translate: bool,
+    translate_to: Option<&str>,
     active_exe: Option<&str>,
 ) -> ProcessedTranscription {
     let settings = get_settings(app);
@@ -616,8 +586,10 @@ pub(crate) async fn process_transcription_output(
     // Cleanup would be a second LLM round-trip (the translation prompt drops
     // fillers itself), and the e-mail layout heuristics are German/English
     // specific — neither belongs on translated output.
-    if translate {
-        if let Some(translated) = translate_transcription(&settings, &final_text).await {
+    if let Some(target_language) = translate_to {
+        if let Some(translated) =
+            translate_transcription(&settings, &final_text, target_language).await
+        {
             post_processed_text = Some(translated.clone());
             final_text = translated;
         }
@@ -872,7 +844,9 @@ impl ShortcutAction for TranscribeAction {
 
         let binding_id = binding_id.to_string(); // Clone binding_id for the async task
         let post_process = self.post_process;
-        let translate = self.translate;
+        // Per-language translate bindings carry their target in the id
+        // ("transcribe_translate:pl").
+        let translate_to = translate_binding_language(&binding_id).map(str::to_string);
         let cancel_generation = rm.cancel_generation();
         // Captured now, while the target app still owns the foreground
         // window — used for per-app profiles and history.
@@ -1024,7 +998,7 @@ impl ShortcutAction for TranscribeAction {
                                 &ah,
                                 &transcription,
                                 post_process,
-                                translate,
+                                translate_to.as_deref(),
                                 active_exe.as_deref(),
                             )
                             .await;
@@ -1178,6 +1152,24 @@ impl ShortcutAction for TestAction {
     }
 }
 
+/// Shared action for all per-language translate bindings — the target
+/// language is carried in the binding id itself.
+static TRANSLATE_ACTION: Lazy<Arc<dyn ShortcutAction>> = Lazy::new(|| {
+    Arc::new(TranscribeAction {
+        post_process: false,
+    })
+});
+
+/// Resolves the action for a binding id, covering the dynamic per-language
+/// translate bindings ("transcribe_translate:<lang>") that cannot live in the
+/// static ACTION_MAP.
+pub fn resolve_action(binding_id: &str) -> Option<Arc<dyn ShortcutAction>> {
+    if translate_binding_language(binding_id).is_some() {
+        return Some(Arc::clone(&TRANSLATE_ACTION));
+    }
+    ACTION_MAP.get(binding_id).cloned()
+}
+
 // Static Action Map
 pub static ACTION_MAP: Lazy<HashMap<String, Arc<dyn ShortcutAction>>> = Lazy::new(|| {
     let mut map = HashMap::new();
@@ -1185,22 +1177,11 @@ pub static ACTION_MAP: Lazy<HashMap<String, Arc<dyn ShortcutAction>>> = Lazy::ne
         "transcribe".to_string(),
         Arc::new(TranscribeAction {
             post_process: false,
-            translate: false,
         }) as Arc<dyn ShortcutAction>,
     );
     map.insert(
         "transcribe_with_post_process".to_string(),
-        Arc::new(TranscribeAction {
-            post_process: true,
-            translate: false,
-        }) as Arc<dyn ShortcutAction>,
-    );
-    map.insert(
-        "transcribe_translate".to_string(),
-        Arc::new(TranscribeAction {
-            post_process: false,
-            translate: true,
-        }) as Arc<dyn ShortcutAction>,
+        Arc::new(TranscribeAction { post_process: true }) as Arc<dyn ShortcutAction>,
     );
     map.insert(
         "cancel".to_string(),
@@ -1215,7 +1196,8 @@ pub static ACTION_MAP: Lazy<HashMap<String, Arc<dyn ShortcutAction>>> = Lazy::ne
 
 #[cfg(test)]
 mod tests {
-    use super::{is_blank_transcription, translation_language_name};
+    use super::is_blank_transcription;
+    use crate::settings::translation_language_name;
 
     #[test]
     fn blank_transcription_is_detected() {

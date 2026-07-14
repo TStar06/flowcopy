@@ -459,13 +459,16 @@ pub struct AppSettings {
     pub smart_format_enabled: bool,
     #[serde(default = "default_spoken_commands_enabled")]
     pub spoken_commands_enabled: bool,
-    /// Dedicated translate hotkey: dictations recorded via the
-    /// `transcribe_translate` binding are translated into
-    /// `translate_target_language` by the post-processing LLM before pasting.
+    /// Dedicated translate hotkeys: dictations recorded via a
+    /// `transcribe_translate:<lang>` binding are translated into that
+    /// language by the post-processing LLM before pasting. One binding per
+    /// target language, managed in the Translation settings tab.
     #[serde(default)]
     pub translate_enabled: bool,
-    #[serde(default = "default_translate_target_language")]
-    pub translate_target_language: String,
+    /// One-time setup marker for the translate binding list. Prevents the
+    /// default Polish entry from being re-added after the user deletes it.
+    #[serde(default)]
+    pub translate_targets_initialized: bool,
     #[serde(default)]
     pub text_replacements: Vec<TextReplacement>,
     #[serde(default)]
@@ -591,8 +594,63 @@ fn default_sound_theme() -> SoundTheme {
     SoundTheme::Marimba
 }
 
-fn default_translate_target_language() -> String {
-    "pl".to_string()
+/// Prefix for the per-language translate bindings ("transcribe_translate:pl").
+pub const TRANSLATE_BINDING_PREFIX: &str = "transcribe_translate:";
+
+/// English names for the translation target languages (the Parakeet V3
+/// European set). Unknown codes fall through as the raw code — LLMs
+/// understand ISO 639-1 codes well enough.
+pub fn translation_language_name(code: &str) -> &str {
+    match code {
+        "bg" => "Bulgarian",
+        "hr" => "Croatian",
+        "cs" => "Czech",
+        "da" => "Danish",
+        "nl" => "Dutch",
+        "en" => "English",
+        "et" => "Estonian",
+        "fi" => "Finnish",
+        "fr" => "French",
+        "de" => "German",
+        "el" => "Greek",
+        "hu" => "Hungarian",
+        "it" => "Italian",
+        "lv" => "Latvian",
+        "lt" => "Lithuanian",
+        "mt" => "Maltese",
+        "pl" => "Polish",
+        "pt" => "Portuguese",
+        "ro" => "Romanian",
+        "ru" => "Russian",
+        "sk" => "Slovak",
+        "sl" => "Slovenian",
+        "es" => "Spanish",
+        "sv" => "Swedish",
+        "uk" => "Ukrainian",
+        other => other,
+    }
+}
+
+/// Builds the shipped ShortcutBinding for a translate target language.
+pub fn make_translate_binding(language: &str, current_binding: &str) -> ShortcutBinding {
+    let id = format!("{TRANSLATE_BINDING_PREFIX}{language}");
+    ShortcutBinding {
+        id: id.clone(),
+        name: format!("Translate to {}", translation_language_name(language)),
+        description: format!(
+            "Records speech and types the {} translation.",
+            translation_language_name(language)
+        ),
+        default_binding: "ctrl+alt+space".to_string(),
+        current_binding: current_binding.to_string(),
+    }
+}
+
+/// Returns the target language code of a translate binding id, if it is one.
+/// The legacy un-suffixed "transcribe_translate" id (v0.6.0) is not matched —
+/// it is renamed by the settings migration.
+pub fn translate_binding_language(binding_id: &str) -> Option<&str> {
+    binding_id.strip_prefix(TRANSLATE_BINDING_PREFIX)
 }
 
 fn default_smart_format_enabled() -> bool {
@@ -937,16 +995,6 @@ pub fn get_default_settings() -> AppSettings {
             current_binding: "enter".to_string(),
         },
     );
-    bindings.insert(
-        "transcribe_translate".to_string(),
-        ShortcutBinding {
-            id: "transcribe_translate".to_string(),
-            name: "Translate".to_string(),
-            description: "Records speech and types the translation.".to_string(),
-            default_binding: "ctrl+alt+space".to_string(),
-            current_binding: "ctrl+alt+space".to_string(),
-        },
-    );
 
     AppSettings {
         settings_schema_version: default_settings_schema_version(),
@@ -1001,7 +1049,9 @@ pub fn get_default_settings() -> AppSettings {
         smart_format_enabled: default_smart_format_enabled(),
         spoken_commands_enabled: default_spoken_commands_enabled(),
         translate_enabled: false,
-        translate_target_language: default_translate_target_language(),
+        // Fresh installs get the Polish starter entry via the migration below;
+        // the flag stays false here so it runs exactly once per store.
+        translate_targets_initialized: false,
         text_replacements: Vec::new(),
         snippets: Vec::new(),
         cloud_transcription_enabled: false,
@@ -1103,7 +1153,20 @@ pub fn get_settings(app: &AppHandle) -> AppSettings {
     let mut settings = if let Some(settings_value) = store.get("settings") {
         match serde_json::from_value::<AppSettings>(settings_value.clone()) {
             Ok(mut settings) => {
-                if apply_settings_migrations(&mut settings, &settings_value) {
+                let mut updated = apply_settings_migrations(&mut settings, &settings_value);
+                // Merge missing default bindings here too, not only in
+                // load_or_create_app_settings: the frontend fetches settings
+                // through this path and may otherwise race the startup merge
+                // after an update introduces a new binding.
+                for (key, value) in get_default_settings().bindings {
+                    if let std::collections::hash_map::Entry::Vacant(entry) =
+                        settings.bindings.entry(key)
+                    {
+                        entry.insert(value);
+                        updated = true;
+                    }
+                }
+                if updated {
                     store.set("settings", serde_json::to_value(&settings).unwrap());
                     let _ = store.save();
                 }
@@ -1178,6 +1241,34 @@ fn apply_settings_migrations(
             settings.transcribe_gpu_device = default_transcribe_gpu_device();
         }
         settings.settings_schema_version = CURRENT_SETTINGS_SCHEMA_VERSION;
+        updated = true;
+    }
+
+    // Translate binding list setup (one-time). v0.6.0 shipped a single
+    // "transcribe_translate" binding plus a translate_target_language field;
+    // since v0.7.0 each target language has its own binding
+    // ("transcribe_translate:<lang>"). Rename an existing legacy binding,
+    // otherwise seed the Polish starter entry. The flag prevents the starter
+    // from being re-added after the user deletes their entries.
+    if !settings.translate_targets_initialized {
+        let legacy = settings.bindings.remove("transcribe_translate");
+        let has_translate_binding = settings
+            .bindings
+            .keys()
+            .any(|k| k.starts_with(TRANSLATE_BINDING_PREFIX));
+        if !has_translate_binding {
+            let language = settings_value
+                .get("translate_target_language")
+                .and_then(|v| v.as_str())
+                .unwrap_or("pl")
+                .to_string();
+            let keys = legacy
+                .map(|b| b.current_binding)
+                .unwrap_or_else(|| "ctrl+alt+space".to_string());
+            let binding = make_translate_binding(&language, &keys);
+            settings.bindings.insert(binding.id.clone(), binding);
+        }
+        settings.translate_targets_initialized = true;
         updated = true;
     }
 
@@ -1313,6 +1404,68 @@ mod tests {
     }
 
     #[test]
+    fn legacy_translate_binding_migrates_to_language_suffixed_id() {
+        let mut settings = get_default_settings();
+        settings.bindings.insert(
+            "transcribe_translate".to_string(),
+            ShortcutBinding {
+                id: "transcribe_translate".to_string(),
+                name: "Translate".to_string(),
+                description: "Records speech and types the translation.".to_string(),
+                default_binding: "ctrl+alt+space".to_string(),
+                current_binding: "ctrl+p".to_string(),
+            },
+        );
+
+        let raw = serde_json::json!({
+            "selected_model": "",
+            "onboarding_completed": true,
+            "whats_new_last_seen_version": "0.6.0",
+            "settings_schema_version": 1,
+            "overlay_style": "live",
+            "translate_target_language": "it"
+        });
+
+        assert!(apply_settings_migrations(&mut settings, &raw));
+        assert!(!settings.bindings.contains_key("transcribe_translate"));
+        let migrated = settings.bindings.get("transcribe_translate:it").unwrap();
+        // The user's custom hotkey survives the rename.
+        assert_eq!(migrated.current_binding, "ctrl+p");
+        assert!(settings.translate_targets_initialized);
+    }
+
+    #[test]
+    fn fresh_store_seeds_polish_translate_binding_once() {
+        let mut settings = get_default_settings();
+        let raw = serde_json::json!({
+            "selected_model": "",
+            "onboarding_completed": true,
+            "whats_new_last_seen_version": "0.7.0",
+            "settings_schema_version": 1,
+            "overlay_style": "live"
+        });
+
+        assert!(apply_settings_migrations(&mut settings, &raw));
+        assert!(settings.bindings.contains_key("transcribe_translate:pl"));
+
+        // Deleting the entry must stick: the migration ran once and never
+        // re-seeds.
+        settings.bindings.remove("transcribe_translate:pl");
+        assert!(!apply_settings_migrations(&mut settings, &raw));
+        assert!(!settings.bindings.contains_key("transcribe_translate:pl"));
+    }
+
+    #[test]
+    fn translate_binding_language_parses_prefixed_ids() {
+        assert_eq!(
+            translate_binding_language("transcribe_translate:pl"),
+            Some("pl")
+        );
+        assert_eq!(translate_binding_language("transcribe_translate"), None);
+        assert_eq!(translate_binding_language("transcribe"), None);
+    }
+
+    #[test]
     fn cancel_binding_colliding_with_finish_is_reset_to_default() {
         let mut settings = get_default_settings();
         settings.bindings.get_mut("cancel").unwrap().current_binding = "enter".to_string();
@@ -1401,6 +1554,7 @@ mod tests {
         let mut settings = get_default_settings();
         settings.transcribe_accelerator = TranscribeAcceleratorSetting::Gpu;
         settings.transcribe_gpu_device = 2;
+        settings.translate_targets_initialized = true;
 
         let raw = serde_json::json!({
             "settings_schema_version": CURRENT_SETTINGS_SCHEMA_VERSION,
@@ -1408,7 +1562,8 @@ mod tests {
             "whats_new_last_seen_version": default_whats_new_last_seen_version(),
             "overlay_style": "live",
             "transcribe_accelerator": "gpu",
-            "transcribe_gpu_device": 2
+            "transcribe_gpu_device": 2,
+            "translate_targets_initialized": true
         });
 
         assert!(!apply_settings_migrations(&mut settings, &raw));
