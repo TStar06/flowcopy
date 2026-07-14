@@ -15,7 +15,8 @@
     "postProcessing": "Naverwerking",
     "history": "Geschiedenis",
     "debug": "Probleemoplossing",
-    "about": "Over Handy"
+    "about": "Over Handy",
+    "translation": "Translation"
   },
   "onboarding": {
     "groq": {
@@ -192,6 +193,10 @@
           "transcribe_with_post_process": {
             "name": "Sneltoets voor naverwerking",
             "description": "Optioneel: Een specifieke sneltoets die altijd AI-naverwerking toepast op je transcriptie."
+          },
+          "transcribe_translate": {
+            "name": "Translate Shortcut",
+            "description": "The keyboard shortcut to record speech and type the translation."
           }
         },
         "errors": {
@@ -637,6 +642,18 @@
           "details": "Handy's lokale spraak-naar-tekst is gebouwd op transcribe.cpp en ggml. Met dank aan het geweldige werk van Georgi Gerganov en alle bijdragers."
         }
       }
+    },
+    "translation": {
+      "title": "Translation",
+      "enable": {
+        "label": "Enable translation hotkey",
+        "description": "Adds a dedicated hotkey that records your speech and types the translation instead of the original text."
+      },
+      "targetLanguage": {
+        "label": "Target language",
+        "description": "Dictations recorded with the translation hotkey are translated into this language."
+      },
+      "hint": "Translation uses the AI post-processing service (Groq API key required, see Post-Processing). Speak in any language — the result comes out in the target language. In hands-free mode, press Enter to finish, Escape to cancel."
     }
   },
   "footer": {

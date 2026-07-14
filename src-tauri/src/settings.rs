@@ -459,6 +459,13 @@ pub struct AppSettings {
     pub smart_format_enabled: bool,
     #[serde(default = "default_spoken_commands_enabled")]
     pub spoken_commands_enabled: bool,
+    /// Dedicated translate hotkey: dictations recorded via the
+    /// `transcribe_translate` binding are translated into
+    /// `translate_target_language` by the post-processing LLM before pasting.
+    #[serde(default)]
+    pub translate_enabled: bool,
+    #[serde(default = "default_translate_target_language")]
+    pub translate_target_language: String,
     #[serde(default)]
     pub text_replacements: Vec<TextReplacement>,
     #[serde(default)]
@@ -582,6 +589,10 @@ fn default_audio_feedback_volume() -> f32 {
 
 fn default_sound_theme() -> SoundTheme {
     SoundTheme::Marimba
+}
+
+fn default_translate_target_language() -> String {
+    "pl".to_string()
 }
 
 fn default_smart_format_enabled() -> bool {
@@ -926,6 +937,16 @@ pub fn get_default_settings() -> AppSettings {
             current_binding: "enter".to_string(),
         },
     );
+    bindings.insert(
+        "transcribe_translate".to_string(),
+        ShortcutBinding {
+            id: "transcribe_translate".to_string(),
+            name: "Translate".to_string(),
+            description: "Records speech and types the translation.".to_string(),
+            default_binding: "ctrl+alt+space".to_string(),
+            current_binding: "ctrl+alt+space".to_string(),
+        },
+    );
 
     AppSettings {
         settings_schema_version: default_settings_schema_version(),
@@ -979,6 +1000,8 @@ pub fn get_default_settings() -> AppSettings {
         custom_filler_words: None,
         smart_format_enabled: default_smart_format_enabled(),
         spoken_commands_enabled: default_spoken_commands_enabled(),
+        translate_enabled: false,
+        translate_target_language: default_translate_target_language(),
         text_replacements: Vec::new(),
         snippets: Vec::new(),
         cloud_transcription_enabled: false,

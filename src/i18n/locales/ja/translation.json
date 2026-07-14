@@ -15,7 +15,8 @@
     "postProcessing": "後処理",
     "history": "履歴",
     "debug": "デバッグ",
-    "about": "概要"
+    "about": "概要",
+    "translation": "Translation"
   },
   "onboarding": {
     "groq": {
@@ -210,6 +211,10 @@
           "transcribe_with_post_process": {
             "name": "後処理のショートカット",
             "description": "文字起こしに常に AI 後処理を適用するキーボードショートカット。 (任意)"
+          },
+          "transcribe_translate": {
+            "name": "Translate Shortcut",
+            "description": "The keyboard shortcut to record speech and type the translation."
           }
         },
         "errors": {
@@ -637,6 +642,18 @@
         "label": "新機能を表示",
         "description": "Handy のアップデート後にリリースノートを表示"
       }
+    },
+    "translation": {
+      "title": "Translation",
+      "enable": {
+        "label": "Enable translation hotkey",
+        "description": "Adds a dedicated hotkey that records your speech and types the translation instead of the original text."
+      },
+      "targetLanguage": {
+        "label": "Target language",
+        "description": "Dictations recorded with the translation hotkey are translated into this language."
+      },
+      "hint": "Translation uses the AI post-processing service (Groq API key required, see Post-Processing). Speak in any language — the result comes out in the target language. In hands-free mode, press Enter to finish, Escape to cancel."
     }
   },
   "footer": {

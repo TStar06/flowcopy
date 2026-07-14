@@ -422,6 +422,10 @@ fn register_all_shortcuts_for_implementation(
         if id == "transcribe_with_post_process" && !current_settings.post_process_enabled {
             continue;
         }
+        // Skip translate shortcut when the feature is disabled
+        if id == "transcribe_translate" && !current_settings.translate_enabled {
+            continue;
+        }
 
         let mut binding = current_settings
             .bindings
@@ -975,6 +979,37 @@ pub fn change_post_process_enabled_setting(app: AppHandle, enabled: bool) -> Res
         }
     }
 
+    Ok(())
+}
+
+#[tauri::command]
+#[specta::specta]
+pub fn change_translate_enabled_setting(app: AppHandle, enabled: bool) -> Result<(), String> {
+    let mut settings = settings::get_settings(&app);
+    settings.translate_enabled = enabled;
+    settings::write_settings(&app, settings.clone());
+
+    // Register or unregister the translate shortcut
+    if let Some(binding) = settings.bindings.get("transcribe_translate").cloned() {
+        if enabled {
+            let _ = register_shortcut(&app, binding);
+        } else {
+            let _ = unregister_shortcut(&app, binding);
+        }
+    }
+
+    Ok(())
+}
+
+#[tauri::command]
+#[specta::specta]
+pub fn change_translate_target_language_setting(
+    app: AppHandle,
+    language: String,
+) -> Result<(), String> {
+    let mut settings = settings::get_settings(&app);
+    settings.translate_target_language = language;
+    settings::write_settings(&app, settings);
     Ok(())
 }
 

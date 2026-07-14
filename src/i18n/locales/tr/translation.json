@@ -15,7 +15,8 @@
     "postProcessing": "Son İşlem",
     "history": "Geçmiş",
     "debug": "Hata Ayıklama",
-    "about": "Hakkında"
+    "about": "Hakkında",
+    "translation": "Translation"
   },
   "onboarding": {
     "groq": {
@@ -210,6 +211,10 @@
           "transcribe_with_post_process": {
             "name": "Son İşlem Kısayolu",
             "description": "İsteğe bağlı: Transkripsiyonunuza her zaman AI son işleme uygulayan özel bir kısayol tuşu."
+          },
+          "transcribe_translate": {
+            "name": "Translate Shortcut",
+            "description": "The keyboard shortcut to record speech and type the translation."
           }
         },
         "errors": {
@@ -637,6 +642,18 @@
         "label": "Yenilikleri Göster",
         "description": "Handy güncellemelerinden sonra sürüm notlarını göster"
       }
+    },
+    "translation": {
+      "title": "Translation",
+      "enable": {
+        "label": "Enable translation hotkey",
+        "description": "Adds a dedicated hotkey that records your speech and types the translation instead of the original text."
+      },
+      "targetLanguage": {
+        "label": "Target language",
+        "description": "Dictations recorded with the translation hotkey are translated into this language."
+      },
+      "hint": "Translation uses the AI post-processing service (Groq API key required, see Post-Processing). Speak in any language — the result comes out in the target language. In hands-free mode, press Enter to finish, Escape to cancel."
     }
   },
   "footer": {

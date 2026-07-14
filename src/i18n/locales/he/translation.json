@@ -15,7 +15,8 @@
     "postProcessing": "עיבוד משלים",
     "history": "היסטוריה",
     "debug": "ניפוי שגיאות",
-    "about": "אודות"
+    "about": "אודות",
+    "translation": "Translation"
   },
   "onboarding": {
     "groq": {
@@ -192,6 +193,10 @@
           "transcribe_with_post_process": {
             "name": "קיצור לעיבוד משלים",
             "description": "אופציונלי: קיצור מקשים ייעודי שתמיד מפעיל עיבוד AI על התמלול."
+          },
+          "transcribe_translate": {
+            "name": "Translate Shortcut",
+            "description": "The keyboard shortcut to record speech and type the translation."
           }
         },
         "errors": {
@@ -637,6 +642,18 @@
         "label": "הצג מה חדש",
         "description": "הצג הערות גרסה לאחר עדכוני Handy"
       }
+    },
+    "translation": {
+      "title": "Translation",
+      "enable": {
+        "label": "Enable translation hotkey",
+        "description": "Adds a dedicated hotkey that records your speech and types the translation instead of the original text."
+      },
+      "targetLanguage": {
+        "label": "Target language",
+        "description": "Dictations recorded with the translation hotkey are translated into this language."
+      },
+      "hint": "Translation uses the AI post-processing service (Groq API key required, see Post-Processing). Speak in any language — the result comes out in the target language. In hands-free mode, press Enter to finish, Escape to cancel."
     }
   },
   "footer": {

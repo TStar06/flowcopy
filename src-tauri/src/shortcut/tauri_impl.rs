@@ -27,6 +27,10 @@ pub fn init_shortcuts(app: &AppHandle) {
         if id == "transcribe_with_post_process" && !user_settings.post_process_enabled {
             continue;
         }
+        // Skip translate shortcut when the feature is disabled
+        if id == "transcribe_translate" && !user_settings.translate_enabled {
+            continue;
+        }
         let binding = user_settings
             .bindings
             .get(&id)

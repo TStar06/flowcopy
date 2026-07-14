@@ -15,7 +15,8 @@
     "postProcessing": "Nachbearbeitung",
     "history": "Verlauf",
     "debug": "Debug",
-    "about": "Info"
+    "about": "Info",
+    "translation": "Übersetzung"
   },
   "onboarding": {
     "groq": {
@@ -210,6 +211,10 @@
           "transcribe_with_post_process": {
             "name": "Nachbearbeitungs-Tastenkürzel",
             "description": "Optional: Ein dediziertes Tastenkürzel, das immer die KI-Nachbearbeitung auf deine Transkription anwendet."
+          },
+          "transcribe_translate": {
+            "name": "Übersetzen-Shortcut",
+            "description": "Die Taste, die Sprache aufnimmt und die Übersetzung eintippt."
           }
         },
         "errors": {
@@ -637,6 +642,18 @@
         "label": "Neuerungen anzeigen",
         "description": "Versionshinweise nach CC Speak-Updates anzeigen"
       }
+    },
+    "translation": {
+      "title": "Übersetzung",
+      "enable": {
+        "label": "Übersetzungs-Hotkey aktivieren",
+        "description": "Eigener Hotkey, der dein Diktat aufnimmt und statt des Originals die Übersetzung eintippt."
+      },
+      "targetLanguage": {
+        "label": "Zielsprache",
+        "description": "Diktate über den Übersetzungs-Hotkey werden in diese Sprache übersetzt."
+      },
+      "hint": "Die Übersetzung läuft über die KI-Nachbearbeitung (Groq-API-Key nötig, siehe Nachbearbeitung). Sprich in beliebiger Sprache — der Text kommt in der Zielsprache heraus. Im Freisprech-Modus mit Enter abschließen, Escape bricht ab."
     }
   },
   "footer": {

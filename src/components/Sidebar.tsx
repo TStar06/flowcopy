@@ -1,6 +1,15 @@
 import React from "react";
 import { useTranslation } from "react-i18next";
-import { Cog, FlaskConical, History, Info, Sparkles, Cpu, Mic } from "lucide-react";
+import {
+  Cog,
+  FlaskConical,
+  History,
+  Info,
+  Sparkles,
+  Cpu,
+  Mic,
+  Languages,
+} from "lucide-react";
 import HandyTextLogo from "./icons/HandyTextLogo";
 import { useSettings } from "../hooks/useSettings";
 import {
@@ -11,6 +20,7 @@ import {
   AboutSettings,
   PostProcessingSettings,
   ModelsSettings,
+  TranslationSettings,
 } from "./settings";
 
 export type SidebarSection = keyof typeof SECTIONS_CONFIG;
@@ -61,6 +71,12 @@ export const SECTIONS_CONFIG = {
     component: PostProcessingSettings,
     // Always visible: this is where the (free) Groq cloud key is set up,
     // a core FlowCopy feature — must be reachable before it's enabled.
+    enabled: () => true,
+  },
+  translation: {
+    labelKey: "sidebar.translation",
+    icon: Languages,
+    component: TranslationSettings,
     enabled: () => true,
   },
   debug: {

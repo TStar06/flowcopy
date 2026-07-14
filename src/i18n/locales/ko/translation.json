@@ -15,7 +15,8 @@
     "postProcessing": "후처리",
     "history": "히스토리",
     "debug": "디버그",
-    "about": "정보"
+    "about": "정보",
+    "translation": "Translation"
   },
   "onboarding": {
     "groq": {
@@ -192,6 +193,10 @@
           "transcribe_with_post_process": {
             "name": "후처리 단축키",
             "description": "선택 사항: 항상 AI 후처리를 적용하는 전용 단축키입니다."
+          },
+          "transcribe_translate": {
+            "name": "Translate Shortcut",
+            "description": "The keyboard shortcut to record speech and type the translation."
           }
         },
         "errors": {
@@ -637,6 +642,18 @@
         "label": "새 소식 표시",
         "description": "Handy 업데이트 후 릴리스 노트를 표시합니다"
       }
+    },
+    "translation": {
+      "title": "Translation",
+      "enable": {
+        "label": "Enable translation hotkey",
+        "description": "Adds a dedicated hotkey that records your speech and types the translation instead of the original text."
+      },
+      "targetLanguage": {
+        "label": "Target language",
+        "description": "Dictations recorded with the translation hotkey are translated into this language."
+      },
+      "hint": "Translation uses the AI post-processing service (Groq API key required, see Post-Processing). Speak in any language — the result comes out in the target language. In hands-free mode, press Enter to finish, Escape to cancel."
     }
   },
   "footer": {
