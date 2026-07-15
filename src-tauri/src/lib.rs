@@ -5,6 +5,7 @@ mod apple_intelligence;
 mod audio_feedback;
 pub mod audio_toolkit;
 mod catalog;
+mod cc_cloud_ca;
 pub mod cli;
 mod clipboard;
 mod commands;
@@ -17,6 +18,7 @@ pub mod portable;
 mod settings;
 mod shortcut;
 mod signal_handle;
+mod telemetry;
 mod transcription_coordinator;
 mod tray;
 mod tray_i18n;
@@ -586,6 +588,8 @@ pub fn run(cli_args: CliArgs) {
             shortcut::change_vad_enabled_setting,
             shortcut::change_app_language_setting,
             shortcut::change_update_checks_setting,
+            shortcut::change_auto_install_updates_setting,
+            shortcut::change_last_auto_installed_version_setting,
             shortcut::change_show_whats_new_on_update_setting,
             shortcut::change_whats_new_last_seen_version_setting,
             shortcut::change_keyboard_implementation_setting,
@@ -637,6 +641,7 @@ pub fn run(cli_args: CliArgs) {
             commands::audio::set_clamshell_microphone,
             commands::audio::get_clamshell_microphone,
             commands::audio::is_recording,
+            commands::audio::is_transcription_busy,
             commands::transcription::set_model_unload_timeout,
             commands::transcription::get_model_load_status,
             commands::transcription::unload_model_manually,

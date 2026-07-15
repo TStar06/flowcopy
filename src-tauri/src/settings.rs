@@ -372,6 +372,16 @@ pub struct AppSettings {
     pub autostart_enabled: bool,
     #[serde(default = "default_update_checks_enabled")]
     pub update_checks_enabled: bool,
+    /// Install found updates automatically on startup (silent, then relaunch),
+    /// instead of only showing a clickable "update available" hint.
+    #[serde(default = "default_auto_install_updates")]
+    pub auto_install_updates: bool,
+    /// Version last attempted by the silent auto-install, persisted across
+    /// restarts. If the same version is still offered after the relaunch
+    /// (broken release, wrong latest.json), it is not auto-installed again —
+    /// this breaks a fleet-wide update→relaunch loop.
+    #[serde(default)]
+    pub last_auto_installed_version: String,
     #[serde(default = "default_show_whats_new_on_update")]
     pub show_whats_new_on_update: bool,
     /// The app version whose What's New the user has already seen. Fresh installs
@@ -469,6 +479,11 @@ pub struct AppSettings {
     /// default Polish entry from being re-added after the user deletes it.
     #[serde(default)]
     pub translate_targets_initialized: bool,
+    /// One-time marker: the install has been switched to the central
+    /// Car-Controlling cloud provider. Prevents re-switching after the user
+    /// deliberately picks a different provider.
+    #[serde(default)]
+    pub cc_cloud_migrated: bool,
     #[serde(default)]
     pub text_replacements: Vec<TextReplacement>,
     #[serde(default)]
@@ -524,6 +539,10 @@ fn default_autostart_enabled() -> bool {
 }
 
 fn default_update_checks_enabled() -> bool {
+    true
+}
+
+fn default_auto_install_updates() -> bool {
     true
 }
 
@@ -662,7 +681,9 @@ fn default_spoken_commands_enabled() -> bool {
 }
 
 fn default_post_process_enabled() -> bool {
-    false
+    // Company builds (cc_cloud token embedded) ship with cleanup enabled so
+    // the tool works out of the box; other builds keep it opt-in.
+    !cc_cloud_app_token().is_empty()
 }
 
 fn default_app_language() -> String {
@@ -675,14 +696,39 @@ fn default_show_tray_icon() -> bool {
     true
 }
 
+/// Provider id of the central Car-Controlling cloud proxy.
+pub const CC_CLOUD_PROVIDER_ID: &str = "cc_cloud";
+/// Base URL of the company proxy (holds the shared Groq key server-side).
+pub const CC_CLOUD_BASE_URL: &str = "https://82.25.97.160:9443/v1";
+
+/// App token embedded at build time (`CC_CLOUD_APP_TOKEN` env). Empty in
+/// local/dev builds — the cc_cloud provider is then simply not usable, and
+/// nothing changes for non-company users.
+pub fn cc_cloud_app_token() -> &'static str {
+    option_env!("CC_CLOUD_APP_TOKEN").unwrap_or("")
+}
+
 fn default_post_process_provider_id() -> String {
-    // Groq: kostenloser Free-Tier (nur E-Mail-Anmeldung), sehr niedrige
-    // Latenz - der empfohlene Cleanup-Provider fuer FlowCopy.
+    // Company builds default to the central proxy (shared key, no manual
+    // setup). Other builds default to Groq (free tier, email-only signup).
+    if !cc_cloud_app_token().is_empty() {
+        return CC_CLOUD_PROVIDER_ID.to_string();
+    }
     "groq".to_string()
 }
 
 fn default_post_process_providers() -> Vec<PostProcessProvider> {
     let mut providers = vec![
+        PostProcessProvider {
+            // Central company proxy (shared Groq key server-side). Listed
+            // first so it is the natural default for company installs.
+            id: CC_CLOUD_PROVIDER_ID.to_string(),
+            label: "Car-Controlling Cloud".to_string(),
+            base_url: CC_CLOUD_BASE_URL.to_string(),
+            allow_base_url_edit: false,
+            models_endpoint: Some("/models".to_string()),
+            supports_structured_output: false,
+        },
         PostProcessProvider {
             id: "openai".to_string(),
             label: "OpenAI".to_string(),
@@ -775,7 +821,14 @@ fn default_post_process_providers() -> Vec<PostProcessProvider> {
 fn default_post_process_api_keys() -> SecretMap {
     let mut map = HashMap::new();
     for provider in default_post_process_providers() {
-        map.insert(provider.id, String::new());
+        // The cc_cloud provider ships with the build-time app token as its
+        // "key" so company installs work without any manual entry.
+        let key = if provider.id == CC_CLOUD_PROVIDER_ID {
+            cc_cloud_app_token().to_string()
+        } else {
+            String::new()
+        };
+        map.insert(provider.id, key);
     }
     SecretMap(map)
 }
@@ -784,9 +837,10 @@ fn default_model_for_provider(provider_id: &str) -> String {
     if provider_id == APPLE_INTELLIGENCE_PROVIDER_ID {
         return APPLE_INTELLIGENCE_DEFAULT_MODEL_ID.to_string();
     }
-    if provider_id == "groq" {
+    if provider_id == "groq" || provider_id == CC_CLOUD_PROVIDER_ID {
         // 8B-instant: fuer reines Cleanup+Formatieren genauso gut wie 70B,
         // aber ~6x niedrigere Startlatenz und 14.400 statt 1.000 Requests/Tag.
+        // Der Proxy leitet an dasselbe Groq weiter, gleiche Modell-IDs.
         return "llama-3.1-8b-instant".to_string();
     }
     String::new()
@@ -873,6 +927,26 @@ fn ensure_post_process_defaults(settings: &mut AppSettings) -> bool {
                 .post_process_api_keys
                 .insert(provider.id.clone(), String::new());
             changed = true;
+        }
+
+        // Keep the cc_cloud app token in sync with the build: set it whenever
+        // the stored value differs (empty on a fresh add, or an old token
+        // after a rotation). Never overwrites user-entered keys of other
+        // providers.
+        if provider.id == CC_CLOUD_PROVIDER_ID {
+            let token = cc_cloud_app_token();
+            if !token.is_empty()
+                && settings
+                    .post_process_api_keys
+                    .get(&provider.id)
+                    .map(String::as_str)
+                    != Some(token)
+            {
+                settings
+                    .post_process_api_keys
+                    .insert(provider.id.clone(), token.to_string());
+                changed = true;
+            }
         }
 
         let default_model = default_model_for_provider(&provider.id);
@@ -1006,6 +1080,8 @@ pub fn get_default_settings() -> AppSettings {
         start_hidden: default_start_hidden(),
         autostart_enabled: default_autostart_enabled(),
         update_checks_enabled: default_update_checks_enabled(),
+        auto_install_updates: default_auto_install_updates(),
+        last_auto_installed_version: String::new(),
         show_whats_new_on_update: default_show_whats_new_on_update(),
         whats_new_last_seen_version: default_whats_new_last_seen_version(),
         selected_model: "".to_string(),
@@ -1052,6 +1128,7 @@ pub fn get_default_settings() -> AppSettings {
         // Fresh installs get the Polish starter entry via the migration below;
         // the flag stays false here so it runs exactly once per store.
         translate_targets_initialized: false,
+        cc_cloud_migrated: false,
         text_replacements: Vec::new(),
         snippets: Vec::new(),
         cloud_transcription_enabled: false,
@@ -1272,6 +1349,17 @@ fn apply_settings_migrations(
         updated = true;
     }
 
+    // One-time switch to the central Car-Controlling cloud provider. Only in
+    // builds that carry a cc_cloud app token (company release) — dev/community
+    // builds leave the user's provider untouched. Personal keys stay stored,
+    // so a user can switch back in the UI at any time.
+    if !settings.cc_cloud_migrated && !cc_cloud_app_token().is_empty() {
+        settings.post_process_provider_id = CC_CLOUD_PROVIDER_ID.to_string();
+        settings.post_process_enabled = true;
+        settings.cc_cloud_migrated = true;
+        updated = true;
+    }
+
     // Cancel must never share a key with finish (default: enter). Before the
     // finish binding existed, binding cancel to Enter was a natural workaround
     // attempt for ending a hands-free recording — but it silently DISCARDED
@@ -1318,7 +1406,11 @@ fn apply_settings_migrations(
     updated
 }
 
-pub fn write_settings(app: &AppHandle, settings: AppSettings) {
+/// Like [`write_settings`] but surfaces persist failures to the caller. Use
+/// when the caller must know the value really reached the disk — e.g. the
+/// auto-update loop brake, where a silently unpersisted value could cause an
+/// update→relaunch loop.
+pub fn try_write_settings(app: &AppHandle, settings: AppSettings) -> Result<(), String> {
     let store = app
         .store(crate::portable::store_path(SETTINGS_STORE_PATH))
         .expect("Failed to initialize store");
@@ -1327,7 +1419,11 @@ pub fn write_settings(app: &AppHandle, settings: AppSettings) {
     // Persist to disk immediately. Without this the value only lives in the
     // in-memory store and is lost if the app is killed before the plugin's
     // auto-save debounce fires — which silently dropped API keys and settings.
-    if let Err(e) = store.save() {
+    store.save().map_err(|e| e.to_string())
+}
+
+pub fn write_settings(app: &AppHandle, settings: AppSettings) {
+    if let Err(e) = try_write_settings(app, settings) {
         error!("Failed to persist settings to disk: {}", e);
     }
 }
@@ -1547,6 +1643,38 @@ mod tests {
             settings.settings_schema_version,
             CURRENT_SETTINGS_SCHEMA_VERSION
         );
+    }
+
+    #[test]
+    fn cc_cloud_provider_is_shipped_first() {
+        let providers = default_post_process_providers();
+        assert_eq!(
+            providers.first().map(|p| p.id.as_str()),
+            Some(CC_CLOUD_PROVIDER_ID)
+        );
+        // Legacy mode like Groq (no structured output).
+        assert!(!providers[0].supports_structured_output);
+    }
+
+    #[test]
+    fn cc_cloud_migration_is_noop_without_embedded_token() {
+        // The test build carries no CC_CLOUD_APP_TOKEN, so a non-company build
+        // must leave the provider untouched (stays Groq, no forced enable).
+        assert!(cc_cloud_app_token().is_empty());
+        let mut settings = get_default_settings();
+        settings.post_process_provider_id = "groq".to_string();
+        settings.translate_targets_initialized = true;
+
+        let raw = serde_json::json!({
+            "settings_schema_version": CURRENT_SETTINGS_SCHEMA_VERSION,
+            "onboarding_completed": true,
+            "whats_new_last_seen_version": default_whats_new_last_seen_version(),
+            "overlay_style": "live",
+            "translate_targets_initialized": true
+        });
+        apply_settings_migrations(&mut settings, &raw);
+        assert_eq!(settings.post_process_provider_id, "groq");
+        assert!(!settings.cc_cloud_migrated);
     }
 
     #[test]

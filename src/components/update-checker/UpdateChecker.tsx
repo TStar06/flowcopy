@@ -1,6 +1,10 @@
 import React, { useState, useEffect, useRef } from "react";
 import { useTranslation } from "react-i18next";
-import { check } from "@tauri-apps/plugin-updater";
+import {
+  check,
+  type DownloadEvent,
+  type Update,
+} from "@tauri-apps/plugin-updater";
 import { relaunch } from "@tauri-apps/plugin-process";
 import { listen } from "@tauri-apps/api/event";
 import { openUrl } from "@tauri-apps/plugin-opener";
@@ -11,6 +15,14 @@ import { commands } from "../../bindings";
 interface UpdateCheckerProps {
   className?: string;
 }
+
+// While the silent auto-update waits for the dictation pipeline to go
+// idle before relaunching, re-check this often.
+const IDLE_POLL_INTERVAL_MS = 5000;
+// If the pipeline never goes idle (stuck busy state), give up on the
+// silent install after this long — the update stays a clickable hint
+// and is retried on the next app start.
+const IDLE_WAIT_DEADLINE_MS = 60 * 60 * 1000;
 
 const UpdateChecker: React.FC<UpdateCheckerProps> = ({ className = "" }) => {
   const { t } = useTranslation();
@@ -26,11 +38,15 @@ const UpdateChecker: React.FC<UpdateCheckerProps> = ({ className = "" }) => {
   const { settings, isLoading } = useSettings();
   const settingsLoaded = !isLoading && settings !== null;
   const updateChecksEnabled = settings?.update_checks_enabled ?? false;
+  const autoInstallUpdates = settings?.auto_install_updates ?? false;
+  const lastAutoInstalledVersion = settings?.last_auto_installed_version ?? "";
 
   const upToDateTimeoutRef = useRef<ReturnType<typeof setTimeout>>();
   const isManualCheckRef = useRef(false);
   const downloadedBytesRef = useRef(0);
   const contentLengthRef = useRef(0);
+  // Guard so the silent auto-install runs at most once per app start.
+  const autoInstallTriedRef = useRef(false);
 
   useEffect(() => {
     // Wait for settings to load before doing anything
@@ -72,6 +88,30 @@ const UpdateChecker: React.FC<UpdateCheckerProps> = ({ className = "" }) => {
       if (update) {
         setUpdateAvailable(true);
         setShowUpToDate(false);
+
+        // Company/default behavior: install the update silently on startup
+        // and relaunch, so employees never have to click. Only on an
+        // automatic check (not a manual one), at most once per app start,
+        // and never for portable installs. Any failure falls through to the
+        // normal clickable "update available" hint.
+        //
+        // Loop brake: if this exact version was already auto-installed once
+        // and is still being offered after the relaunch (broken release,
+        // wrong latest.json), don't install it again — otherwise every
+        // machine in the fleet would restart in an endless update loop.
+        if (
+          autoInstallUpdates &&
+          !isManualCheckRef.current &&
+          !autoInstallTriedRef.current
+        ) {
+          autoInstallTriedRef.current = true;
+          if (update.version !== lastAutoInstalledVersion) {
+            const portable = await commands.isPortable().catch(() => false);
+            if (!portable) {
+              autoInstallUpdate(update);
+            }
+          }
+        }
       } else {
         setUpdateAvailable(false);
 
@@ -99,6 +139,98 @@ const UpdateChecker: React.FC<UpdateCheckerProps> = ({ className = "" }) => {
     checkForUpdates();
   };
 
+  const onDownloadEvent = (event: DownloadEvent) => {
+    switch (event.event) {
+      case "Started":
+        downloadedBytesRef.current = 0;
+        contentLengthRef.current = event.data.contentLength ?? 0;
+        break;
+      case "Progress":
+        downloadedBytesRef.current += event.data.chunkLength;
+        const progress =
+          contentLengthRef.current > 0
+            ? Math.round(
+                (downloadedBytesRef.current / contentLengthRef.current) * 100,
+              )
+            : 0;
+        setDownloadProgress(Math.min(progress, 100));
+        break;
+    }
+  };
+
+  // Silent auto-update path: download in the background, then hold the
+  // install/relaunch until nothing is being recorded or processed, so the
+  // forced restart never kills an in-flight dictation.
+  const autoInstallUpdate = async (update: Update) => {
+    try {
+      setIsInstalling(true);
+      setDownloadProgress(0);
+      downloadedBytesRef.current = 0;
+      contentLengthRef.current = 0;
+
+      await update.download(onDownloadEvent);
+
+      // Wait until nothing is being recorded or processed. Fail closed: an
+      // error probing the backend counts as busy; give up after a few
+      // consecutive errors or once the deadline passes — better no silent
+      // update than a relaunch that kills an in-flight dictation.
+      let pollErrors = 0;
+      const deadline = Date.now() + IDLE_WAIT_DEADLINE_MS;
+      for (;;) {
+        let busy = true;
+        try {
+          busy = await commands.isTranscriptionBusy();
+          pollErrors = 0;
+        } catch (error) {
+          pollErrors += 1;
+          if (pollErrors >= 3) {
+            console.error(
+              "Skipping silent update, idle probe keeps failing:",
+              error,
+            );
+            return;
+          }
+        }
+        if (!busy) break;
+        if (Date.now() > deadline) {
+          console.warn(
+            "Skipping silent update, pipeline never went idle before the deadline",
+          );
+          return;
+        }
+        await new Promise((resolve) =>
+          setTimeout(resolve, IDLE_POLL_INTERVAL_MS),
+        );
+      }
+
+      // Persist the attempted version BEFORE install/relaunch — this is the
+      // cross-restart loop brake checked in checkForUpdates. Persisting only
+      // now, after the idle wait, keeps an aborted wait (app quit, shutdown)
+      // from permanently disabling this version's auto-install. If it cannot
+      // be persisted, skip the silent install rather than risk a loop.
+      const marked = await commands.changeLastAutoInstalledVersionSetting(
+        update.version,
+      );
+      if (marked.status === "error") {
+        console.error(
+          "Skipping silent update, could not persist loop brake:",
+          marked.error,
+        );
+        return;
+      }
+
+      await update.install();
+      await relaunch();
+    } catch (error) {
+      console.error("Failed to auto-install update:", error);
+    } finally {
+      setIsInstalling(false);
+      setDownloadProgress(0);
+      downloadedBytesRef.current = 0;
+      contentLengthRef.current = 0;
+    }
+  };
+
   const installUpdate = async () => {
     if (!updateChecksEnabled) return;
 
@@ -120,25 +252,7 @@ const UpdateChecker: React.FC<UpdateCheckerProps> = ({ className = "" }) => {
         return;
       }
 
-      await update.downloadAndInstall((event) => {
-        switch (event.event) {
-          case "Started":
-            downloadedBytesRef.current = 0;
-            contentLengthRef.current = event.data.contentLength ?? 0;
-            break;
-          case "Progress":
-            downloadedBytesRef.current += event.data.chunkLength;
-            const progress =
-              contentLengthRef.current > 0
-                ? Math.round(
-                    (downloadedBytesRef.current / contentLengthRef.current) *
-                      100,
-                  )
-                : 0;
-            setDownloadProgress(Math.min(progress, 100));
-            break;
-        }
-      });
+      await update.downloadAndInstall(onDownloadEvent);
       await relaunch();
     } catch (error) {
       console.error("Failed to install update:", error);
@@ -203,7 +317,9 @@ const UpdateChecker: React.FC<UpdateCheckerProps> = ({ className = "" }) => {
               <button
                 className="px-3 py-1.5 text-sm rounded bg-background-ui text-background hover:bg-background-ui/85 transition-colors"
                 onClick={() => {
-                  openUrl("https://github.com/TStar06/flowcopy/releases/latest");
+                  openUrl(
+                    "https://github.com/TStar06/flowcopy/releases/latest",
+                  );
                   setShowPortableUpdateDialog(false);
                 }}
               >

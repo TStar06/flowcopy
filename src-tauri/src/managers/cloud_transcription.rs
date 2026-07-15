@@ -11,7 +11,7 @@ use log::debug;
 
 use crate::audio_toolkit::constants::WHISPER_SAMPLE_RATE;
 
-const GROQ_TRANSCRIPTION_URL: &str = "https://api.groq.com/openai/v1/audio/transcriptions";
+pub const GROQ_TRANSCRIPTION_URL: &str = "https://api.groq.com/openai/v1/audio/transcriptions";
 const GROQ_ASR_MODEL: &str = "whisper-large-v3-turbo";
 /// Generous but hard cap: a dictation must never hang the paste pipeline.
 const REQUEST_TIMEOUT: Duration = Duration::from_secs(15);
@@ -46,20 +46,23 @@ fn encode_wav(samples: &[f32]) -> Result<Vec<u8>, String> {
     Ok(cursor.into_inner())
 }
 
-/// Transcribes samples with Groq. `language` follows the app setting
-/// ("auto" lets the model detect; anything else is sent as ISO code).
-pub async fn transcribe_groq(
+/// Transcribes samples via an OpenAI-compatible audio endpoint (Groq directly
+/// or the Car-Controlling proxy). `language` follows the app setting ("auto"
+/// lets the model detect; anything else is sent as ISO code). The embedded
+/// company CA is applied automatically when `endpoint` targets the proxy host.
+pub async fn transcribe_cloud(
     samples: &[f32],
     language: &str,
+    endpoint: &str,
     api_key: &str,
 ) -> Result<String, String> {
     if api_key.trim().is_empty() {
-        return Err("No Groq API key configured".to_string());
+        return Err("No cloud API key configured".to_string());
     }
 
     let wav = encode_wav(samples)?;
     debug!(
-        "Cloud transcription: sending {:.1}s of audio to Groq",
+        "Cloud transcription: sending {:.1}s of audio",
         samples.len() as f32 / WHISPER_SAMPLE_RATE as f32
     );
 
@@ -84,24 +87,27 @@ pub async fn transcribe_groq(
         form = form.text("language", base_lang);
     }
 
-    let client = reqwest::Client::builder()
-        .timeout(REQUEST_TIMEOUT)
+    let mut builder = reqwest::Client::builder().timeout(REQUEST_TIMEOUT);
+    if let Some(cert) = crate::cc_cloud_ca::certificate_for(endpoint) {
+        builder = builder.add_root_certificate(cert);
+    }
+    let client = builder
         .build()
         .map_err(|e| format!("Failed to build HTTP client: {}", e))?;
 
     let response = client
-        .post(GROQ_TRANSCRIPTION_URL)
+        .post(endpoint)
         .bearer_auth(api_key.trim())
         .multipart(form)
         .send()
         .await
-        .map_err(|e| format!("Groq request failed: {}", e))?;
+        .map_err(|e| format!("Cloud ASR request failed: {}", e))?;
 
     if !response.status().is_success() {
         let status = response.status();
         let body = response.text().await.unwrap_or_default();
         return Err(format!(
-            "Groq returned {}: {}",
+            "Cloud ASR returned {}: {}",
             status,
             body.chars().take(300).collect::<String>()
         ));
@@ -110,7 +116,7 @@ pub async fn transcribe_groq(
     let parsed: TranscriptionResponse = response
         .json()
         .await
-        .map_err(|e| format!("Failed to parse Groq response: {}", e))?;
+        .map_err(|e| format!("Failed to parse cloud ASR response: {}", e))?;
 
     Ok(parsed.text.trim().to_string())
 }

@@ -537,6 +537,10 @@
         "label": "Проверять наличие обновлений",
         "description": "Автоматически проверять наличие новых версий Handy"
       },
+      "autoInstallUpdates": {
+        "label": "Install updates automatically",
+        "description": "When a new version is found on startup, install it silently and restart. Turn off to only get a clickable notice."
+      },
       "soundTheme": {
         "label": "Звуковая тема",
         "description": "Выберите звуковую тему для начала и остановки записи обратной связи."

@@ -108,12 +108,19 @@ fn create_client(provider: &PostProcessProvider, api_key: &str) -> Result<reqwes
     let headers = build_headers(provider, api_key)?;
     let timeout = if provider.id == "custom" {
         std::time::Duration::from_secs(30)
+    } else if provider.id == crate::settings::CC_CLOUD_PROVIDER_ID {
+        // Company proxy: extra hop plus the slower 70B translate model.
+        std::time::Duration::from_secs(20)
     } else {
         std::time::Duration::from_secs(8)
     };
-    reqwest::Client::builder()
+    let mut builder = reqwest::Client::builder()
         .default_headers(headers)
-        .timeout(timeout)
+        .timeout(timeout);
+    if let Some(cert) = crate::cc_cloud_ca::certificate_for(&provider.base_url) {
+        builder = builder.add_root_certificate(cert);
+    }
+    builder
         .build()
         .map_err(|e| format!("Failed to build HTTP client: {}", e))
 }

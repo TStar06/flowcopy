@@ -537,6 +537,10 @@
         "label": "Проверка за актуализации",
         "description": "Автоматична проверка за нови версии на Handy"
       },
+      "autoInstallUpdates": {
+        "label": "Install updates automatically",
+        "description": "When a new version is found on startup, install it silently and restart. Turn off to only get a clickable notice."
+      },
       "soundTheme": {
         "label": "Звукова тема",
         "description": "Избор на звукова тема за сигнал при старт и край на записа"

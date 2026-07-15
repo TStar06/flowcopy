@@ -537,6 +537,10 @@
         "label": "アップデートを確認",
         "description": "Handy の新しいバージョンを自動的にチェック"
       },
+      "autoInstallUpdates": {
+        "label": "Install updates automatically",
+        "description": "When a new version is found on startup, install it silently and restart. Turn off to only get a clickable notice."
+      },
       "soundTheme": {
         "label": "サウンドテーマ",
         "description": "録音開始・停止フィードバックのサウンドテーマを選択"

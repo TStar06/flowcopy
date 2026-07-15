@@ -537,6 +537,10 @@
         "label": "檢查更新",
         "description": "自動檢查 Handy 的新版本"
       },
+      "autoInstallUpdates": {
+        "label": "Install updates automatically",
+        "description": "When a new version is found on startup, install it silently and restart. Turn off to only get a clickable notice."
+      },
       "soundTheme": {
         "label": "聲音主題",
         "description": "選擇錄製開始和停止回饋的聲音主題"

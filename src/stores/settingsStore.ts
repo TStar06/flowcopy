@@ -91,6 +91,10 @@ const settingUpdaters: {
     commands.changeAutostartSetting(value as boolean),
   update_checks_enabled: (value) =>
     commands.changeUpdateChecksSetting(value as boolean),
+  auto_install_updates: (value) =>
+    commands.changeAutoInstallUpdatesSetting(value as boolean),
+  last_auto_installed_version: (value) =>
+    commands.changeLastAutoInstalledVersionSetting(value as string),
   show_whats_new_on_update: (value) =>
     commands.changeShowWhatsNewOnUpdateSetting(value as boolean),
   whats_new_last_seen_version: (value) =>

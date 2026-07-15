@@ -1,6 +1,7 @@
 use crate::actions::resolve_action;
 use crate::managers::audio::AudioRecordingManager;
 use log::{debug, error, warn};
+use std::sync::atomic::{AtomicBool, Ordering};
 use std::sync::mpsc::{self, Sender};
 use std::sync::Arc;
 use std::thread;
@@ -37,6 +38,9 @@ enum Stage {
 /// the async transcribe-paste pipeline.
 pub struct TranscriptionCoordinator {
     tx: Sender<Command>,
+    /// Mirrors whether `stage` is anything other than `Idle`, so callers
+    /// outside the coordinator thread (e.g. the updater) can check it.
+    busy: Arc<AtomicBool>,
 }
 
 pub fn is_transcribe_binding(id: &str) -> bool {
@@ -48,8 +52,11 @@ pub fn is_transcribe_binding(id: &str) -> bool {
 impl TranscriptionCoordinator {
     pub fn new(app: AppHandle) -> Self {
         let (tx, rx) = mpsc::channel();
+        let busy = Arc::new(AtomicBool::new(false));
+        let busy_flag = busy.clone();
 
         thread::spawn(move || {
+            let busy_in_loop = busy_flag.clone();
             let result = std::panic::catch_unwind(std::panic::AssertUnwindSafe(|| {
                 let mut stage = Stage::Idle;
                 let mut last_press: Option<Instant> = None;
@@ -129,15 +136,25 @@ impl TranscriptionCoordinator {
                             stage = Stage::Idle;
                         }
                     }
+                    busy_in_loop.store(!matches!(stage, Stage::Idle), Ordering::SeqCst);
                 }
                 debug!("Transcription coordinator exited");
             }));
             if let Err(e) = result {
                 error!("Transcription coordinator panicked: {e:?}");
+                // Don't leave the flag frozen on true — that would block the
+                // silent auto-update (and mislead other callers) forever.
+                busy_flag.store(false, Ordering::SeqCst);
             }
         });
 
-        Self { tx }
+        Self { tx, busy }
+    }
+
+    /// True while a dictation is being recorded or its pipeline is still
+    /// processing (transcribe → post-process → paste).
+    pub fn is_busy(&self) -> bool {
+        self.busy.load(Ordering::SeqCst)
     }
 
     /// Send a keyboard/signal input event for a transcribe binding.

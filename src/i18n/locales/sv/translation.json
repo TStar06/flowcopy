@@ -537,6 +537,10 @@
         "label": "Sök efter uppdateringar",
         "description": "Sök automatiskt efter nya versioner av Handy"
       },
+      "autoInstallUpdates": {
+        "label": "Install updates automatically",
+        "description": "When a new version is found on startup, install it silently and restart. Turn off to only get a clickable notice."
+      },
       "soundTheme": {
         "label": "Ljudtema",
         "description": "Välj ett ljudtema för återkoppling vid start och stopp av inspelning"

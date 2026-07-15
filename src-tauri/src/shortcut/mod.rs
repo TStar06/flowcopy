@@ -763,6 +763,24 @@ pub fn change_update_checks_setting(app: AppHandle, enabled: bool) -> Result<(),
 
 #[tauri::command]
 #[specta::specta]
+pub fn change_auto_install_updates_setting(app: AppHandle, enabled: bool) -> Result<(), String> {
+    let mut settings = settings::get_settings(&app);
+    settings.auto_install_updates = enabled;
+    settings::write_settings(&app, settings);
+
+    let _ = app.emit(
+        "settings-changed",
+        serde_json::json!({
+            "setting": "auto_install_updates",
+            "value": enabled
+        }),
+    );
+
+    Ok(())
+}
+
+#[tauri::command]
+#[specta::specta]
 pub fn change_show_whats_new_on_update_setting(
     app: AppHandle,
     enabled: bool,
@@ -776,6 +794,30 @@ pub fn change_show_whats_new_on_update_setting(
         serde_json::json!({
             "setting": "show_whats_new_on_update",
             "value": enabled
+        }),
+    );
+
+    Ok(())
+}
+
+#[tauri::command]
+#[specta::specta]
+pub fn change_last_auto_installed_version_setting(
+    app: AppHandle,
+    version: String,
+) -> Result<(), String> {
+    let mut settings = settings::get_settings(&app);
+    settings.last_auto_installed_version = version.clone();
+    // Propagate persist failures: the frontend skips the silent install when
+    // the loop brake cannot be written, otherwise a broken release plus a
+    // failing disk write would loop update→relaunch forever.
+    settings::try_write_settings(&app, settings)?;
+
+    let _ = app.emit(
+        "settings-changed",
+        serde_json::json!({
+            "setting": "last_auto_installed_version",
+            "value": version
         }),
     );
 

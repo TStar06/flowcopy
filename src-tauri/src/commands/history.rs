@@ -3,8 +3,33 @@ use crate::managers::{
     history::{HistoryManager, HistoryStats, PaginatedHistory},
     transcription::TranscriptionManager,
 };
+use std::sync::atomic::{AtomicUsize, Ordering};
 use std::sync::Arc;
 use tauri::{AppHandle, State};
+
+/// In-flight retry transcriptions. Retries bypass the
+/// [`crate::TranscriptionCoordinator`], so `is_transcription_busy` checks this
+/// counter too — otherwise the silent update relaunch could kill a running
+/// retry.
+static RETRIES_IN_FLIGHT: AtomicUsize = AtomicUsize::new(0);
+
+pub fn retries_in_flight() -> bool {
+    RETRIES_IN_FLIGHT.load(Ordering::SeqCst) > 0
+}
+
+/// Drop guard so the counter also decrements on early returns and panics.
+struct RetryGuard;
+impl RetryGuard {
+    fn new() -> Self {
+        RETRIES_IN_FLIGHT.fetch_add(1, Ordering::SeqCst);
+        Self
+    }
+}
+impl Drop for RetryGuard {
+    fn drop(&mut self) {
+        RETRIES_IN_FLIGHT.fetch_sub(1, Ordering::SeqCst);
+    }
+}
 
 #[tauri::command]
 #[specta::specta]
@@ -92,6 +117,7 @@ pub async fn retry_history_entry_transcription(
     transcription_manager: State<'_, Arc<TranscriptionManager>>,
     id: i64,
 ) -> Result<(), String> {
+    let _guard = RetryGuard::new();
     let entry = history_manager
         .get_entry_by_id(id)
         .await

@@ -377,27 +377,38 @@ async fn post_process_transcription(
     }
 }
 
+/// Result of a translation attempt — carries the reason on failure so the
+/// caller can both keep the original text and report anonymous telemetry.
+enum TranslationOutcome {
+    Ok(String),
+    /// LLM answered, but the answer was discarded (reason for the dashboard).
+    Rejected(&'static str),
+    /// No provider/model/key configured, or the LLM call itself failed.
+    Failed,
+}
+
 /// Translates a dictation into the given target language via the
-/// post-processing LLM. Returns `None` (caller keeps the untranslated text)
-/// when no provider/key is configured, the call fails, or the answer is
-/// implausible (empty or a runaway continuation).
+/// post-processing LLM. On anything but `Ok` the caller keeps the untranslated
+/// (already cleaned + laid out) text.
 async fn translate_transcription(
     settings: &AppSettings,
     transcription: &str,
     target_language: &str,
-) -> Option<String> {
+) -> TranslationOutcome {
     if is_blank_transcription(transcription) {
-        return None;
+        return TranslationOutcome::Failed;
     }
 
-    let provider = settings.active_post_process_provider().cloned()?;
+    let Some(provider) = settings.active_post_process_provider().cloned() else {
+        return TranslationOutcome::Failed;
+    };
     // Translation needs a stronger model than the cleanup step: in a direct
     // comparison llama-3.1-8b-instant applied self-corrections backwards,
     // mistranslated domain words and mangled names (6/8), while the 70B model
     // passed 8/8 with idiomatic output. The free tier allows 1k requests/day —
     // plenty for a dedicated translate hotkey. Other providers keep their
     // configured post-processing model.
-    let model = if provider.id == "groq" {
+    let model = if provider.id == "groq" || provider.id == crate::settings::CC_CLOUD_PROVIDER_ID {
         "llama-3.3-70b-versatile".to_string()
     } else {
         settings
@@ -411,7 +422,7 @@ async fn translate_transcription(
             "Translation skipped: provider '{}' has no model",
             provider.id
         );
-        return None;
+        return TranslationOutcome::Failed;
     }
     let api_key = settings
         .post_process_api_keys
@@ -461,7 +472,7 @@ async fn translate_transcription(
             // continued the wrapped input instead of translating it.
             if content.contains("<<<") || content.contains(">>>") {
                 warn!("Translation rejected: answer echoes the input delimiters; keeping original text");
-                return None;
+                return TranslationOutcome::Rejected("delimiter_echo");
             }
             let in_words = transcription.split_whitespace().count();
             let out_words = content.split_whitespace().count();
@@ -470,7 +481,7 @@ async fn translate_transcription(
                     "Translation rejected as implausible ({} words from {} input words); keeping original text",
                     out_words, in_words
                 );
-                return None;
+                return TranslationOutcome::Rejected("implausible_length");
             }
             // Source-language echo: a real translation shares almost no words
             // with its input (names and digits aside). High overlap means the
@@ -497,25 +508,25 @@ async fn translate_transcription(
                         echoed,
                         significant_input.len()
                     );
-                    return None;
+                    return TranslationOutcome::Rejected("source_language_echo");
                 }
             }
             debug!(
                 "Translation succeeded. Output length: {} chars",
                 content.len()
             );
-            Some(content)
+            TranslationOutcome::Ok(content)
         }
         Ok(None) => {
             error!("Translation API response has no content");
-            None
+            TranslationOutcome::Failed
         }
         Err(e) => {
             error!(
                 "Translation failed for provider '{}': {}. Keeping original text.",
                 provider.id, e
             );
-            None
+            TranslationOutcome::Failed
         }
     }
 }
@@ -676,12 +687,38 @@ pub(crate) async fn process_transcription_output(
     // Translate hotkey: translate the cleaned and laid-out text as the last
     // step, preserving its structure. On failure the German text is pasted.
     if let Some(target_language) = translate_to {
-        if let Some(translated) =
-            translate_transcription(&settings, &final_text, target_language).await
-        {
-            post_processed_text = Some(translated.clone());
-            final_text = translated;
-        }
+        let (outcome, reason) =
+            match translate_transcription(&settings, &final_text, target_language).await {
+                TranslationOutcome::Ok(translated) => {
+                    post_processed_text = Some(translated.clone());
+                    final_text = translated;
+                    ("ok", None)
+                }
+                TranslationOutcome::Rejected(reason) => ("rejected", Some(reason)),
+                TranslationOutcome::Failed => ("llm_error", None),
+            };
+        crate::telemetry::send(
+            &settings,
+            crate::telemetry::TelemetryEvent {
+                kind: "translate",
+                target_lang: Some(target_language.to_string()),
+                outcome,
+                reject_reason: reason,
+                app_version: env!("CARGO_PKG_VERSION"),
+            },
+        );
+    } else {
+        // Plain dictation: one anonymous count so the dashboard shows usage.
+        crate::telemetry::send(
+            &settings,
+            crate::telemetry::TelemetryEvent {
+                kind: "dictation",
+                target_lang: None,
+                outcome: "ok",
+                reject_reason: None,
+                app_version: env!("CARGO_PKG_VERSION"),
+            },
+        );
     }
 
     ProcessedTranscription {
@@ -884,7 +921,10 @@ impl ShortcutAction for TranscribeAction {
         let active_exe = crate::active_app::foreground_app_exe();
 
         tauri::async_runtime::spawn(async move {
-            let _guard = FinishGuard(ah.clone());
+            // Dropped at the end of this task on every path — except the paste
+            // path, which moves it into the main-thread closure so "processing
+            // finished" is only signalled once the text actually got pasted.
+            let guard = FinishGuard(ah.clone());
             debug!(
                 "Starting async transcription task for binding: {}",
                 binding_id
@@ -937,20 +977,43 @@ impl ShortcutAction for TranscribeAction {
                         // so a batch fallback would contend with it.
                         Ok(Some(text)) if !text.trim().is_empty() => Ok(text),
                         Ok(_) => {
-                            // Optional cloud path (Groq): highest quality, but
-                            // any failure falls back to the local model so
-                            // dictation keeps working offline.
+                            // Optional cloud path (Groq or company proxy):
+                            // highest quality, but any failure falls back to the
+                            // local model so dictation keeps working offline.
+                            // Routes through the proxy when cc_cloud is the
+                            // active provider, else directly to Groq.
                             let settings = get_settings(&ah);
-                            let cloud_key = settings
-                                .post_process_api_keys
-                                .get("groq")
-                                .cloned()
-                                .unwrap_or_default();
+                            let (asr_endpoint, cloud_key) = if settings.post_process_provider_id
+                                == crate::settings::CC_CLOUD_PROVIDER_ID
+                            {
+                                (
+                                    format!(
+                                        "{}/audio/transcriptions",
+                                        crate::settings::CC_CLOUD_BASE_URL
+                                    ),
+                                    settings
+                                        .post_process_api_keys
+                                        .get(crate::settings::CC_CLOUD_PROVIDER_ID)
+                                        .cloned()
+                                        .unwrap_or_default(),
+                                )
+                            } else {
+                                (
+                                    crate::managers::cloud_transcription::GROQ_TRANSCRIPTION_URL
+                                        .to_string(),
+                                    settings
+                                        .post_process_api_keys
+                                        .get("groq")
+                                        .cloned()
+                                        .unwrap_or_default(),
+                                )
+                            };
                             if settings.cloud_transcription_enabled && !cloud_key.trim().is_empty()
                             {
-                                match crate::managers::cloud_transcription::transcribe_groq(
+                                match crate::managers::cloud_transcription::transcribe_cloud(
                                     &samples,
                                     &settings.selected_language,
+                                    &asr_endpoint,
                                     &cloud_key,
                                 )
                                 .await
@@ -1070,6 +1133,11 @@ impl ShortcutAction for TranscribeAction {
                                 let final_text = processed.final_text;
                                 let rm_for_paste = Arc::clone(&rm);
                                 ah.run_on_main_thread(move || {
+                                    // Keeps the coordinator (and the updater's
+                                    // idle check) busy until the paste ran. If
+                                    // run_on_main_thread fails, the unexecuted
+                                    // closure is dropped and the guard fires.
+                                    let _guard = guard;
                                     if rm_for_paste.was_cancelled_since(cancel_generation) {
                                         debug!("Transcription operation cancelled before paste");
                                         utils::hide_recording_overlay(&ah_clone);

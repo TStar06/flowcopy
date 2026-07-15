@@ -537,6 +537,10 @@
         "label": "Güncellemeleri Kontrol Et",
         "description": "Handy için yeni sürümleri otomatik olarak kontrol eder"
       },
+      "autoInstallUpdates": {
+        "label": "Install updates automatically",
+        "description": "When a new version is found on startup, install it silently and restart. Turn off to only get a clickable notice."
+      },
       "soundTheme": {
         "label": "Ses Teması",
         "description": "Kayıt başlangıç ve bitişi için sesli geri bildirim temasını seçin"

@@ -310,3 +310,18 @@ pub fn is_recording(app: AppHandle) -> bool {
     let audio_manager = app.state::<Arc<AudioRecordingManager>>();
     audio_manager.is_recording()
 }
+
+/// True while a dictation is being recorded or its pipeline is still
+/// processing (including history retries). The updater checks this before
+/// the silent auto-update relaunch so a forced restart never kills an
+/// in-flight dictation.
+#[tauri::command]
+#[specta::specta]
+pub fn is_transcription_busy(app: AppHandle) -> bool {
+    let audio_manager = app.state::<Arc<AudioRecordingManager>>();
+    audio_manager.is_recording()
+        || app
+            .try_state::<crate::TranscriptionCoordinator>()
+            .is_some_and(|c| c.is_busy())
+        || crate::commands::history::retries_in_flight()
+}

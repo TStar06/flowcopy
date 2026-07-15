@@ -537,6 +537,10 @@
         "label": "Controleren op updates",
         "description": "Automatisch controleren op nieuwe versies van Handy"
       },
+      "autoInstallUpdates": {
+        "label": "Install updates automatically",
+        "description": "When a new version is found on startup, install it silently and restart. Turn off to only get a clickable notice."
+      },
       "whatsNewPreview": {
         "title": "Voorbeeld van release-notes",
         "description": "Open de nieuwste meegeleverde release-notes zonder deze als gelezen te markeren",
