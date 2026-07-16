@@ -138,8 +138,25 @@ function forwardToGroq(req, res, groqPath, { kind, bufferedBody = null }) {
       res.writeHead(groqRes.statusCode || 502, {
         "content-type": groqRes.headers["content-type"] || "application/json",
       });
-      groqRes.pipe(res);
+      // Bei Fehlern Groqs Fehlertext mitschneiden (nur Groqs eigene
+      // Fehlermeldung, nie Diktat-Inhalte) — die App verliert ihn oft,
+      // weil sie den Response-Body nach einem Fehlerstatus nicht mehr
+      // zuverlässig lesen kann.
+      const isError = (groqRes.statusCode || 0) >= 400;
+      let errBody = "";
+      groqRes.on("data", (chunk) => {
+        if (isError && errBody.length < 600) {
+          errBody += chunk.toString("utf8");
+        }
+        res.write(chunk);
+      });
       groqRes.on("end", () => {
+        res.end();
+        if (isError) {
+          console.error(
+            `Groq ${groqRes.statusCode} (${kind}): ${errBody.slice(0, 600) || "<leer>"}`,
+          );
+        }
         insertRequest.run(
           Date.now(),
           kind,
@@ -405,8 +422,41 @@ const server = createServer(
 
       if (path === "/v1/audio/transcriptions" && req.method === "POST") {
         if (overLimit(req, res)) return;
+        // Upload komplett einsammeln statt live durchzustreamen: ein vom
+        // Client stotternd oder halb gelieferter multipart-Body erzeugte
+        // sonst bei Groq einen 400 mit leerem Fehlertext. Jetzt geht nur
+        // Vollständiges upstream; Abrisse werden hier erkannt und mit
+        // Byte-Zahlen geloggt. Audio bleibt dabei ausschließlich im RAM.
+        const asrStarted = Date.now();
+        const rejectUpload = (status, detail) => {
+          console.error(`ASR-Upload verworfen (${status}): ${detail}`);
+          insertRequest.run(
+            Date.now(),
+            "asr",
+            status,
+            Date.now() - asrStarted,
+            ipHash(req.socket.remoteAddress || "?"),
+          );
+          deny(res, status, "incomplete upload");
+        };
+        let body;
+        try {
+          body = await readBody(req, 30 * 1024 * 1024);
+        } catch (err) {
+          rejectUpload(408, `Abbruch nach unbekannter Länge: ${err.message}`);
+          return;
+        }
+        const declared = Number(req.headers["content-length"] || 0);
+        if (declared && body.length !== declared) {
+          rejectUpload(
+            408,
+            `${body.length}/${declared} Bytes angekommen (Verbindung früh beendet)`,
+          );
+          return;
+        }
         forwardToGroq(req, res, "/openai/v1/audio/transcriptions", {
           kind: "asr",
+          bufferedBody: body,
         });
         return;
       }
