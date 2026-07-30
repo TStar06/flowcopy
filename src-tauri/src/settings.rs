@@ -699,7 +699,10 @@ fn default_show_tray_icon() -> bool {
 /// Provider id of the central Car-Controlling cloud proxy.
 pub const CC_CLOUD_PROVIDER_ID: &str = "cc_cloud";
 /// Base URL of the company proxy (holds the shared Groq key server-side).
-pub const CC_CLOUD_BASE_URL: &str = "https://82.25.97.160:9443/v1";
+/// Uses the domain (public Let's Encrypt cert via Caddy), NOT the bare IP:
+/// the IP path needs the embedded custom CA, and rustls + that CA corrupted
+/// large audio uploads in transit, breaking cloud transcription.
+pub const CC_CLOUD_BASE_URL: &str = "https://speak.cc-worx.com/v1";
 
 /// App token embedded at build time (`CC_CLOUD_APP_TOKEN` env). Empty in
 /// local/dev builds — the cc_cloud provider is then simply not usable, and
@@ -912,6 +915,17 @@ fn ensure_post_process_defaults(settings: &mut AppSettings) -> bool {
                         provider.supports_structured_output
                     );
                     existing.supports_structured_output = provider.supports_structured_output;
+                    changed = true;
+                }
+                // Non-editable providers must follow the build's base_url —
+                // e.g. cc_cloud moved from the bare proxy IP to the domain.
+                // User-editable providers (custom) keep their configured URL.
+                if !provider.allow_base_url_edit && existing.base_url != provider.base_url {
+                    debug!(
+                        "Updating base_url for provider '{}' from {} to {}",
+                        provider.id, existing.base_url, provider.base_url
+                    );
+                    existing.base_url = provider.base_url.clone();
                     changed = true;
                 }
             }

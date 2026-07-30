@@ -170,6 +170,13 @@ pub async fn transcribe_cloud(
     let boundary = multipart_boundary();
     let body = build_multipart_form(&wav, lang_opt, &boundary);
 
+    // Standard TLS against the proxy's public (Let's Encrypt) certificate.
+    // The app talks to the proxy via the domain, so no embedded root
+    // certificate is applied — that path (rustls + our custom IP-SAN CA)
+    // corrupted large upload bodies in transit, making Groq reject them with
+    // "unexpected EOF" so every long dictation fell back to the slow local
+    // model. certificate_for() only returns a cert for the bare proxy IP,
+    // which is no longer used.
     let mut builder = reqwest::Client::builder().timeout(REQUEST_TIMEOUT);
     if let Some(cert) = crate::cc_cloud_ca::certificate_for(endpoint) {
         builder = builder.add_root_certificate(cert);
@@ -197,37 +204,6 @@ pub async fn transcribe_cloud(
 #[cfg(test)]
 mod tests {
     use super::*;
-
-    /// Diagnose-Sonde: ruft den echten App-Pfad gegen den Proxy auf.
-    /// Nur manuell: cargo test probe_real_cloud_asr -- --ignored --nocapture
-    #[tokio::test]
-    #[ignore]
-    async fn probe_real_cloud_asr() {
-        let wav_path = std::env::var("PROBE_WAV").expect("PROBE_WAV");
-        let token = std::env::var("PROBE_TOKEN").expect("PROBE_TOKEN");
-        let endpoint = std::env::var("PROBE_ENDPOINT").expect("PROBE_ENDPOINT");
-        let lang = std::env::var("PROBE_LANG").unwrap_or_else(|_| "auto".to_string());
-
-        let mut reader = hound::WavReader::open(&wav_path).expect("open wav");
-        let samples: Vec<f32> = reader
-            .samples::<i16>()
-            .map(|s| s.expect("sample") as f32 / i16::MAX as f32)
-            .collect();
-        println!(
-            "PROBE: {} samples ({:.1}s), lang={}, endpoint={}",
-            samples.len(),
-            samples.len() as f32 / WHISPER_SAMPLE_RATE as f32,
-            lang,
-            endpoint
-        );
-        let encoded = encode_wav(&samples).expect("encode");
-        println!("PROBE: encode_wav -> {} bytes", encoded.len());
-
-        match transcribe_cloud(&samples, &lang, &endpoint, &token).await {
-            Ok(t) => println!("PROBE ERGEBNIS: OK -> {}", &t[..t.len().min(140)]),
-            Err(e) => println!("PROBE ERGEBNIS: FEHLER -> {e}"),
-        }
-    }
 
     #[test]
     fn test_encode_wav_produces_valid_header() {
