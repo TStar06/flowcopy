@@ -484,6 +484,11 @@ pub struct AppSettings {
     /// deliberately picks a different provider.
     #[serde(default)]
     pub cc_cloud_migrated: bool,
+    /// One-time marker: recognition language moved from "auto" to German.
+    /// Auto-detect misreads short German dictations as Czech/Icelandic; after
+    /// this ran once, a user who deliberately picks "auto" again keeps it.
+    #[serde(default)]
+    pub language_de_migrated: bool,
     #[serde(default)]
     pub text_replacements: Vec<TextReplacement>,
     #[serde(default)]
@@ -555,7 +560,7 @@ fn default_whats_new_last_seen_version() -> String {
 }
 
 fn default_selected_language() -> String {
-    "auto".to_string()
+    "de".to_string()
 }
 
 fn default_overlay_position() -> OverlayPosition {
@@ -1105,7 +1110,7 @@ pub fn get_default_settings() -> AppSettings {
         clamshell_microphone: None,
         selected_output_device: None,
         translate_to_english: false,
-        selected_language: "auto".to_string(),
+        selected_language: default_selected_language(),
         overlay_position: default_overlay_position(),
         debug_mode: false,
         log_level: default_log_level(),
@@ -1143,6 +1148,7 @@ pub fn get_default_settings() -> AppSettings {
         // the flag stays false here so it runs exactly once per store.
         translate_targets_initialized: false,
         cc_cloud_migrated: false,
+        language_de_migrated: false,
         text_replacements: Vec::new(),
         snippets: Vec::new(),
         cloud_transcription_enabled: false,
@@ -1371,6 +1377,18 @@ fn apply_settings_migrations(
         settings.post_process_provider_id = CC_CLOUD_PROVIDER_ID.to_string();
         settings.post_process_enabled = true;
         settings.cc_cloud_migrated = true;
+        updated = true;
+    }
+
+    // One-time switch from auto language detection to German: the team only
+    // dictates German, and auto-detect turns short German clips into
+    // Czech/Icelandic text. Runs once per store, so a later deliberate "auto"
+    // choice is respected.
+    if !settings.language_de_migrated {
+        if settings.selected_language == "auto" {
+            settings.selected_language = "de".to_string();
+        }
+        settings.language_de_migrated = true;
         updated = true;
     }
 
@@ -1670,6 +1688,41 @@ mod tests {
         assert!(!providers[0].supports_structured_output);
     }
 
+    fn migration_raw() -> serde_json::Value {
+        serde_json::json!({
+            "settings_schema_version": CURRENT_SETTINGS_SCHEMA_VERSION,
+            "onboarding_completed": true,
+            "whats_new_last_seen_version": default_whats_new_last_seen_version(),
+            "overlay_style": "live",
+            "translate_targets_initialized": true
+        })
+    }
+
+    #[test]
+    fn language_migration_moves_auto_to_german_once() {
+        let mut settings = get_default_settings();
+        settings.selected_language = "auto".to_string();
+        settings.translate_targets_initialized = true;
+        apply_settings_migrations(&mut settings, &migration_raw());
+        assert_eq!(settings.selected_language, "de");
+        assert!(settings.language_de_migrated);
+
+        // A later deliberate "auto" survives further migration runs.
+        settings.selected_language = "auto".to_string();
+        apply_settings_migrations(&mut settings, &migration_raw());
+        assert_eq!(settings.selected_language, "auto");
+    }
+
+    #[test]
+    fn language_migration_keeps_explicit_choice() {
+        let mut settings = get_default_settings();
+        settings.selected_language = "en".to_string();
+        settings.translate_targets_initialized = true;
+        apply_settings_migrations(&mut settings, &migration_raw());
+        assert_eq!(settings.selected_language, "en");
+        assert!(settings.language_de_migrated);
+    }
+
     #[test]
     fn cc_cloud_migration_is_noop_without_embedded_token() {
         // The test build carries no CC_CLOUD_APP_TOKEN, so a non-company build
@@ -1697,6 +1750,7 @@ mod tests {
         settings.transcribe_accelerator = TranscribeAcceleratorSetting::Gpu;
         settings.transcribe_gpu_device = 2;
         settings.translate_targets_initialized = true;
+        settings.language_de_migrated = true;
 
         let raw = serde_json::json!({
             "settings_schema_version": CURRENT_SETTINGS_SCHEMA_VERSION,

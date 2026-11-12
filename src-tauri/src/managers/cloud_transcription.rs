@@ -21,6 +21,98 @@ const REQUEST_TIMEOUT: Duration = Duration::from_secs(30);
 #[derive(serde::Deserialize)]
 struct TranscriptionResponse {
     text: String,
+    #[serde(default)]
+    segments: Vec<Segment>,
+}
+
+#[derive(serde::Deserialize, Clone, Debug)]
+struct Segment {
+    start: f32,
+    end: f32,
+    text: String,
+}
+
+/// Phrases Whisper invents on trailing silence (it was trained on subtitled
+/// video, so silence at the end turns into "Vielen Dank." / "Thanks for
+/// watching"). Compared after lowercasing and stripping punctuation.
+const HALLUCINATION_PHRASES: &[&str] = &[
+    "vielen dank",
+    "danke",
+    "danke schön",
+    "dankeschön",
+    "vielen dank fürs zuschauen",
+    "danke fürs zuschauen",
+    "vielen dank für ihre aufmerksamkeit",
+    "tschüss",
+    "bis zum nächsten mal",
+    "thank you",
+    "thanks for watching",
+    "thank you for watching",
+];
+
+fn normalize_phrase(text: &str) -> String {
+    text.chars()
+        .filter(|c| c.is_alphanumeric() || c.is_whitespace())
+        .collect::<String>()
+        .to_lowercase()
+        .split_whitespace()
+        .collect::<Vec<_>>()
+        .join(" ")
+}
+
+fn is_hallucination_phrase(text: &str) -> bool {
+    let n = normalize_phrase(text);
+    !n.is_empty() && (HALLUCINATION_PHRASES.contains(&n.as_str()) || n.starts_with("untertitel"))
+}
+
+/// End of the last loud stretch of audio in seconds (100 ms windows, louder
+/// than 10% of the loudest window). Everything after it is trailing silence.
+fn speech_end_secs(samples: &[f32]) -> f32 {
+    let win = (WHISPER_SAMPLE_RATE / 10) as usize;
+    if samples.len() < win {
+        return samples.len() as f32 / WHISPER_SAMPLE_RATE as f32;
+    }
+    let rms: Vec<f32> = samples
+        .chunks(win)
+        .map(|c| (c.iter().map(|s| s * s).sum::<f32>() / c.len() as f32).sqrt())
+        .collect();
+    let peak = rms.iter().cloned().fold(0.0f32, f32::max);
+    if peak <= 0.0 {
+        return 0.0;
+    }
+    match rms.iter().rposition(|&v| v > peak * 0.1) {
+        Some(i) => (i + 1) as f32 / 10.0,
+        None => 0.0,
+    }
+}
+
+/// Drops trailing segments that are a typical Whisper hallucination AND sit in
+/// the trailing silence or are implausibly short. A really spoken "Vielen
+/// Dank" at the end of a mail overlaps loud audio and has normal length, so it
+/// stays. Returns None when nothing was dropped (keep Groq's text unchanged).
+fn strip_trailing_hallucinations(segments: &[Segment], speech_end: f32) -> Option<String> {
+    let mut keep = segments.len();
+    while keep > 0 {
+        let s = &segments[keep - 1];
+        let in_silence = s.start >= speech_end - 0.1;
+        let too_short = s.end - s.start < 0.3;
+        if is_hallucination_phrase(&s.text) && (in_silence || too_short) {
+            keep -= 1;
+        } else {
+            break;
+        }
+    }
+    if keep == segments.len() {
+        return None;
+    }
+    Some(
+        segments[..keep]
+            .iter()
+            .map(|s| s.text.as_str())
+            .collect::<String>()
+            .trim()
+            .to_string(),
+    )
 }
 
 /// Encodes f32 samples (mono, 16 kHz) as an in-memory 16-bit PCM WAV.
@@ -90,7 +182,9 @@ fn build_multipart_form(wav: &[u8], language: Option<&str>, boundary: &str) -> V
     out.extend_from_slice(wav);
     out.extend_from_slice(b"\r\n");
     text_field(&mut out, boundary, "model", GROQ_ASR_MODEL);
-    text_field(&mut out, boundary, "response_format", "json");
+    // verbose_json carries segment timings, needed to spot trailing
+    // hallucinations ("Vielen Dank." in the silence after the last word).
+    text_field(&mut out, boundary, "response_format", "verbose_json");
     text_field(&mut out, boundary, "temperature", "0");
     if let Some(lang) = language {
         text_field(&mut out, boundary, "language", lang);
@@ -105,7 +199,7 @@ async fn send_transcription(
     api_key: &str,
     boundary: &str,
     body: Vec<u8>,
-) -> Result<String, String> {
+) -> Result<TranscriptionResponse, String> {
     let response = client
         .post(endpoint)
         .bearer_auth(api_key.trim())
@@ -133,7 +227,7 @@ async fn send_transcription(
         .await
         .map_err(|e| format!("Failed to parse cloud ASR response: {}", e))?;
 
-    Ok(parsed.text.trim().to_string())
+    Ok(parsed)
 }
 
 /// Transcribes samples via an OpenAI-compatible audio endpoint (Groq directly
@@ -194,7 +288,17 @@ pub async fn transcribe_cloud(
             tokio::time::sleep(Duration::from_millis(300)).await;
         }
         match send_transcription(&client, endpoint, api_key, &boundary, body.clone()).await {
-            Ok(text) => return Ok(text),
+            Ok(resp) => {
+                let speech_end = speech_end_secs(samples);
+                if let Some(cleaned) = strip_trailing_hallucinations(&resp.segments, speech_end) {
+                    debug!(
+                        "Dropped trailing hallucination from cloud ASR (speech ends at {:.1}s)",
+                        speech_end
+                    );
+                    return Ok(cleaned);
+                }
+                return Ok(resp.text.trim().to_string());
+            }
             Err(e) => last_err = e,
         }
     }
@@ -228,6 +332,7 @@ mod tests {
         assert!(text.contains("name=\"model\""));
         assert!(text.contains(GROQ_ASR_MODEL));
         assert!(text.contains("name=\"temperature\""));
+        assert!(text.contains("verbose_json"));
         assert!(!text.contains("name=\"language\""));
     }
 
@@ -247,6 +352,67 @@ mod tests {
         assert!(body
             .windows(wav.len())
             .any(|window| window == wav.as_slice()));
+    }
+
+    fn seg(start: f32, end: f32, text: &str) -> Segment {
+        Segment {
+            start,
+            end,
+            text: text.to_string(),
+        }
+    }
+
+    #[test]
+    fn drops_vielen_dank_in_trailing_silence() {
+        // Real case from 12.11.2026: speech ends at 52.8 s, Whisper adds a
+        // 0.2 s "Vielen Dank." in the silence after it.
+        let segs = vec![
+            seg(44.1, 48.9, " ich habe den Überblick."),
+            seg(48.9, 52.8, " Und weiß was abgeht."),
+            seg(53.1, 53.3, " Vielen Dank."),
+        ];
+        assert_eq!(
+            strip_trailing_hallucinations(&segs, 52.8).as_deref(),
+            Some("ich habe den Überblick. Und weiß was abgeht.")
+        );
+    }
+
+    #[test]
+    fn keeps_spoken_vielen_dank_at_end_of_mail() {
+        // Really spoken: overlaps loud audio, normal length.
+        let segs = vec![
+            seg(0.0, 4.0, " Die Rechnung ist raus."),
+            seg(4.0, 5.1, " Vielen Dank."),
+        ];
+        assert_eq!(strip_trailing_hallucinations(&segs, 5.1), None);
+    }
+
+    #[test]
+    fn keeps_normal_last_sentence_in_silence() {
+        let segs = vec![seg(0.0, 3.0, " Hallo."), seg(3.2, 4.0, " Bis morgen.")];
+        assert_eq!(strip_trailing_hallucinations(&segs, 3.0), None);
+    }
+
+    #[test]
+    fn drops_stacked_hallucinations_and_subtitle_credit() {
+        let segs = vec![
+            seg(0.0, 2.0, " Termin steht."),
+            seg(2.5, 2.7, " Vielen Dank."),
+            seg(2.7, 3.5, " Untertitel im Auftrag des ZDF, 2020"),
+        ];
+        assert_eq!(
+            strip_trailing_hallucinations(&segs, 2.0).as_deref(),
+            Some("Termin steht.")
+        );
+    }
+
+    #[test]
+    fn speech_end_detects_trailing_silence() {
+        let sr = WHISPER_SAMPLE_RATE as usize;
+        let mut samples = vec![0.5f32; sr * 2]; // 2 s loud
+        samples.extend(vec![0.0f32; sr]); // 1 s silence
+        let end = speech_end_secs(&samples);
+        assert!((end - 2.0).abs() < 0.11, "end = {end}");
     }
 
     #[test]
